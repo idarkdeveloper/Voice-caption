@@ -24,7 +24,7 @@ TransCap is an Android app that listens to whatever film or video is playing on 
 | 🎧 **Listens to the phone** | Captures the audio that other apps play (AudioPlaybackCapture). No microphone needed, so room noise stays out. |
 | 🗣️ **Recognises speech on the device** | Whisper (Fast ≈ 160 MB, Accurate ≈ 375 MB) or SenseVoice for Japanese, Chinese, Korean and Cantonese. **Auto model** picks the engine for the language. |
 | 🌐 **Detects the language** | Choose *Auto-detect* and TransCap locks onto the film's language after a few agreeing sentences. |
-| 🔁 **Translates on the phone** | Direct to English with Whisper, otherwise ML Kit. Offered in 59 translation languages. |
+| 🔁 **Translates on the phone** | Direct to English with Whisper, otherwise ML Kit. Offered in 59 translation languages. *Download all languages* (about 1.7 GB, Settings) makes every pack available offline. |
 | ⚡ **Live captions** | Text shows while the person is still speaking, then settles. Display time grows with sentence length. |
 | 🎵 **Marks music** | Background music shows as one `(music)` caption instead of wrong words. |
 | 🎨 **Your style** | Separate boxes for the original line and the translation, drag each one, reset positions, text and plate colours, size stepper, opacity. |
@@ -88,7 +88,7 @@ How it works inside: `AudioCapture → FrameChunker → VadSegmenter (Silero) �
 ## 🛠️ Runbook
 
 ```bash
-./gradlew testDebugUnitTest    # 286 unit tests
+./gradlew testDebugUnitTest    # 289 unit tests
 ./gradlew lintDebug
 ./gradlew assembleDebug
 ```

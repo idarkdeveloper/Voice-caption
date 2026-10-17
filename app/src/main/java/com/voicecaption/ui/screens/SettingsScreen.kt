@@ -17,7 +17,11 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -31,17 +35,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.voicecaption.R
 import com.voicecaption.core.ColorMath
 import com.voicecaption.core.ModelSize
+import com.voicecaption.ui.state.DownloadState
 import com.voicecaption.ui.state.MainUiState
 import com.voicecaption.ui.theme.Spacing
 import kotlin.math.roundToInt
@@ -67,6 +76,9 @@ class SettingsActions(
     val onTargetLanguage: (String) -> Unit,
     val onSwapLanguages: () -> Unit,
     val onDeleteModel: (ModelSize) -> Unit,
+    val onDownloadAllLanguages: () -> Unit,
+    val onRetryDownload: () -> Unit,
+    val onCancelDownload: () -> Unit,
 )
 
 /** Settings: preview, sliders, switch, speech model, languages and storage. */
@@ -222,6 +234,13 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                 )
             }
 
+            OfflineLanguagesSection(
+                download = state.download,
+                onDownloadAll = actions.onDownloadAllLanguages,
+                onRetry = actions.onRetryDownload,
+                onCancel = actions.onCancelDownload,
+            )
+
             StorageSection(
                 installed = state.installedModels,
                 megabytes = modelMegabytes,
@@ -273,6 +292,73 @@ private fun ModelChoice(auto: Boolean, selected: ModelSize, onSelect: (ModelSize
             stringResource(R.string.settings_model_helper),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** "Download all languages": one confirmed tap fetches every missing ML Kit pack for offline use. */
+@Composable
+private fun OfflineLanguagesSection(
+    download: DownloadState,
+    onDownloadAll: () -> Unit,
+    onRetry: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    var confirm by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+        Text(
+            stringResource(R.string.settings_offline_languages),
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.semantics { heading() },
+        )
+        when (download) {
+            is DownloadState.Downloading -> {
+                val description = stringResource(R.string.download_progress_description)
+                Text(
+                    download.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+                LinearProgressIndicator(
+                    progress = { download.progress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().semantics { contentDescription = description },
+                )
+                TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = Spacing.Target)) {
+                    Text(stringResource(R.string.download_cancel))
+                }
+            }
+            is DownloadState.Failed -> {
+                Text(download.message, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
+                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target)) {
+                    Text(stringResource(R.string.download_retry))
+                }
+            }
+            else -> {
+                Text(
+                    stringResource(R.string.settings_offline_languages_helper),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedButton(
+                    onClick = { confirm = true },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target),
+                ) { Text(stringResource(R.string.settings_offline_languages_action)) }
+            }
+        }
+    }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text(stringResource(R.string.settings_offline_languages_confirm_title)) },
+            text = { Text(stringResource(R.string.settings_offline_languages_confirm_message)) },
+            confirmButton = {
+                TextButton(onClick = { confirm = false; onDownloadAll() }) {
+                    Text(stringResource(R.string.download_action))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_cancel)) }
+            },
         )
     }
 }

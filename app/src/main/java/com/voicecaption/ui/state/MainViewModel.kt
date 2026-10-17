@@ -74,7 +74,7 @@ class MainViewModel(
             store.settings.map { Triple(it.activeModel, it.sourceLang, it.targetLang) }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { downloads.cancel() }
+                .collect { downloads.cancelUnlessAllLanguages() }
         }
         // Re-check what is installed whenever a download run ends.
         scope.launch {
@@ -120,6 +120,9 @@ class MainViewModel(
         val s = store.settings.value
         downloads.start(s.activeModel, s.sourceLang, s.targetLang)
     }
+
+    /** Downloads every language pack that is still missing (about 1.7 GB in total). */
+    fun downloadAllLanguages() = downloads.startAllLanguages()
 
     /** Retries the last failed download. */
     fun retryDownloads() = downloads.retry()
