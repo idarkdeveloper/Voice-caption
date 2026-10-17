@@ -39,6 +39,12 @@ class ModelManager(
         return files.all { File(dir, it.name).let { f -> f.isFile && f.length() == it.sizeBytes } }
     }
 
+    /** Deletes the installed model for [size]; true if a model directory existed and was removed. */
+    fun delete(size: ModelSize): Boolean {
+        val dir = dirFor(size)
+        return dir.exists() && dir.deleteRecursively()
+    }
+
     /** Downloads and verifies [size]; [onProgress] reports 0..1 across all files, ending at 1.0. */
     suspend fun install(size: ModelSize, onProgress: (Float) -> Unit): Result<File> {
         val target = dirFor(size)

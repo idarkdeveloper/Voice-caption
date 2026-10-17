@@ -214,6 +214,7 @@ class CaptureService : Service() {
 
             mon.dispatch(ServiceEvent.Ready)
             launchCollectors(pipe, audio, mon, renderer)
+            CaptureStatus.set(true)
             scope.launch {
                 if (!translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showTranslatorMissing() }
             }
@@ -319,6 +320,7 @@ class CaptureService : Service() {
     private fun teardown() {
         if (tornDown) return
         tornDown = true
+        CaptureStatus.set(false)
         try {
             runCatching { monitor?.dispatch(ServiceEvent.UserStop) }
             runCatching { capture?.stop() }

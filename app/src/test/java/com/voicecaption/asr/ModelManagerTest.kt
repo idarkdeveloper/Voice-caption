@@ -112,6 +112,17 @@ class ModelManagerTest {
         File(tmp.root, "base/enc.onnx").writeBytes(byteArrayOf(0))
         assertFalse(m.isInstalled(ModelSize.BASE))
     }
+
+    @Test
+    fun deleteRemovesInstalledModelOnly() = runTest {
+        val m = manager { url, dest, _ -> dest.writeBytes(bytesFor(url)) }
+        m.install(ModelSize.BASE) {}
+        assertTrue(m.isInstalled(ModelSize.BASE))
+        assertTrue(m.delete(ModelSize.BASE))
+        assertFalse(m.isInstalled(ModelSize.BASE))
+        assertFalse(File(tmp.root, "base").exists())
+        assertFalse(m.delete(ModelSize.BASE))
+    }
 }
 
 class ModelCatalogTest {
