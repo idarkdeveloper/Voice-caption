@@ -41,6 +41,10 @@ fun SettingSlider(
     onChange: (Float) -> Unit,
     onCommit: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    /** What is shown at the right of the label; the value as text unless a control replaces it. */
+    valueContent: @Composable () -> Unit = {
+        Text(valueText, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    },
 ) {
     val interaction = remember { MutableInteractionSource() }
     val dragged by interaction.collectIsDraggedAsState()
@@ -54,7 +58,7 @@ fun SettingSlider(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-            Text(valueText, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            valueContent()
         }
         Slider(
             value = draft,

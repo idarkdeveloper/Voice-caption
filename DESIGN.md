@@ -108,7 +108,8 @@ font size. Weight regular. Maximum 5 lines per box.
 | Status line | State in words plus an icon, never colour alone | Setup needed, Download needed, Downloading, Download failed, Ready, Listening, Not started |
 | Download card | Size, progress, cancel, retry for the speech model and language pack | Idle, Downloading, Failed, Done |
 | Segmented control | Choose one of a few options (speech model) | Auto, Fast, Accurate, SenseVoice |
-| Slider with value | Caption size, background opacity; commits on release | - |
+| Slider with value | Caption size, background opacity; commits on release | Plain value (opacity); - / + stepper in place of the value (size) |
+| Size stepper | One-step changes of the caption size, 48 dp buttons, disabled at the limits | - |
 | Switch row | Whole row is the touch target (Show original text) | On, Off |
 | Colour swatch | Pick a preset colour; ring plus tick when selected | Text colours, background colours |
 | Hex field | Custom colour, applies when valid | Default, Error |

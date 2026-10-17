@@ -138,6 +138,18 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                 steps = MAX_FONT_SP - MIN_FONT_SP - 1,
                 onChange = { fontDraft = it.roundToInt() },
                 onCommit = { actions.onFontSize(it.roundToInt()) },
+                valueContent = {
+                    SizeStepper(
+                        value = fontDraft,
+                        min = MIN_FONT_SP,
+                        max = MAX_FONT_SP,
+                        valueText = stringResource(R.string.settings_size_value, fontDraft),
+                        onValue = { size ->
+                            fontDraft = size
+                            actions.onFontSize(size)
+                        },
+                    )
+                },
             )
 
             SettingSlider(

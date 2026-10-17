@@ -86,6 +86,8 @@
     <string name="settings_move_hint">While captions are on, drag each caption box up or down to place it.</string>
     <string name="settings_reset_positions">Reset caption positions</string>
     <string name="settings_size_label">Caption size</string>
+    <string name="settings_size_decrease">Make captions smaller</string>
+    <string name="settings_size_increase">Make captions larger</string>
     <string name="settings_size_value">%1$d sp</string>
     <string name="settings_opacity_label">Caption background</string>
     <string name="settings_opacity_value">%1$d%%</string>

@@ -36,7 +36,7 @@ reference, not screenshots.
 3. **Live translation**: Whisper direct (to English) or ML Kit (all other pairs), on the phone.
 4. **Live partial captions**, refreshed every 0.8 s (SenseVoice) or 1.5 s (Whisper).
 5. **Two plates**: original-language box (smaller, slightly softer text) above the translation box. Each box is moved on its own; the original box stays stacked above the translation box until it is moved. A line not yet translated shows in the original box only. "Reset caption positions" in Settings.
-6. **Caption style**: size 14 to 32 sp, background opacity 50 to 100 %, five text colours, five background colours, custom `RRGGBB`, contrast warning below 4.5:1.
+6. **Caption style**: size 14 to 32 sp (slider, or a - / + stepper for one-step changes), background opacity 50 to 100 %, five text colours, five background colours, custom `RRGGBB`, contrast warning below 4.5:1.
 7. **Languages**: 57 film and caption languages (the set both Whisper and ML Kit support). Swap button. The film language can also be **Auto-detect**: Whisper listens to the first sentences and names the language (it locks after two agreeing sentences of at least one second each, and stays for the session). Chinese, Japanese, Korean and Cantonese then move to SenseVoice if it is installed and the caption language is reachable; everything else stays on Whisper. Until the language is known, captions show the original text without translation (with English captions Whisper translates from the start, so this only affects other caption languages). Swap is off while Auto-detect is chosen.
 8. **Storage**: download, size shown, delete with confirmation.
 9. **Diagnostics line** (debug builds only): model, segment length, decode time, lag, raw recognizer text.
@@ -45,7 +45,6 @@ reference, not screenshots.
 | Proposal | Why | Source |
 |---|---|---|
 | Searchable caption-language list with a downloaded state and size per language | Shows what is ready offline before the user starts | Reference screenshots |
-| Text size stepper beside the slider | Fine control | Reference screenshots |
 | Remember the plate position across app restarts | Currently kept in memory only | Spec open item |
 | First-time hint explaining that live text can change | Prevents "the caption changed" confusion | Field test |
 
@@ -114,7 +113,7 @@ Ready, Listening, Not started (consent dismissed). Start is disabled with a one-
 
 ### 5.3 Settings (top to bottom)
 1. Preview (both plates, current colours, size and opacity)
-2. Caption size, Caption background (opacity)
+2. Caption size (slider with a - / + stepper), Caption background (opacity)
 3. Caption colours: Text colour, Background colour (swatches + custom field), contrast warning
 4. Show original text (switch)
 5. Speech model: Auto, Fast, Accurate, SenseVoice, with a helper line for Auto
@@ -205,6 +204,6 @@ Buttons use verbs.
 - Right-to-left languages: boxes stay centred; the original box may contain mixed-direction text.
 
 ## 10. Open questions
-1. Build the remaining proposals in section 2 (searchable language list, text size stepper)?
+1. Build the remaining proposals in section 2 (searchable language list, saving the box positions)?
 2. Logo and app icon are done (`docs/design/logo/`); a Play Store feature graphic and screenshots are not.
 3. The domain `rt.transcap.app` and the store product id in the backend design are placeholders; availability of the name, domain and store listing has not been checked.
