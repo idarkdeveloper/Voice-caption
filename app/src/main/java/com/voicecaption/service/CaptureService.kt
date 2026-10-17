@@ -351,7 +351,13 @@ class CaptureService : Service() {
     /** Main thread: reacts to a state the monitor reached while processing frames. */
     private fun onState(state: ServiceState) {
         when (state) {
-            ServiceState.BLOCKED -> overlay?.showMessage(getString(R.string.capture_blocked))
+            ServiceState.BLOCKED -> {
+                // Playback capture only hears what the phone plays: a muted media volume looks the
+                // same as an app that blocks capture, so say which one is likely.
+                val am = getSystemService(AudioManager::class.java)
+                val muted = am.getStreamVolume(AudioManager.STREAM_MUSIC) == 0 || am.isStreamMute(AudioManager.STREAM_MUSIC)
+                overlay?.showMessage(getString(if (muted) R.string.capture_volume_off else R.string.capture_blocked))
+            }
             ServiceState.RUNNING -> pipeline?.let { overlay?.render(it.captions.value, ServiceDependencies.settings()) }
             ServiceState.STOPPED -> if (!failing) teardown() // fail() owns the delayed teardown
             else -> Unit
