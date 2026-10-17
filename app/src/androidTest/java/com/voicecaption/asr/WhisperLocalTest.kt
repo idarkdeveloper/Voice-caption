@@ -4,9 +4,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.voicecaption.core.ModelSize
 import com.voicecaption.core.SpeechSegment
+import com.voicecaption.testutil.WavReader
 import java.io.File
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,7 +24,8 @@ class WhisperLocalTest {
             manager.install(ModelSize.BASE) {}.getOrThrow()
         }
 
-        val segment = loadWav(instrumentation.context.assets.open("hello_world_16k.wav").readBytes())
+        val samples = WavReader.toSamples(instrumentation.context.assets.open("hello_world_16k.wav").readBytes())
+        val segment = SpeechSegment(samples, 0L, samples.size * 1000L / 16_000)
         val whisper = WhisperLocal(dir, ModelSize.BASE)
         try {
             val text = whisper.transcribe(segment, "en")
@@ -33,22 +33,5 @@ class WhisperLocalTest {
         } finally {
             whisper.close()
         }
-    }
-
-    /** Parses a 16 kHz mono 16-bit PCM WAV (walks the RIFF chunks to the "data" chunk). */
-    private fun loadWav(bytes: ByteArray): SpeechSegment {
-        val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-        var pos = 12 // past "RIFF", size, "WAVE"
-        while (pos + 8 <= bytes.size) {
-            val id = String(bytes, pos, 4, Charsets.US_ASCII)
-            val len = buf.getInt(pos + 4)
-            if (id == "data") {
-                val pcm = ByteBuffer.wrap(bytes, pos + 8, len).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer()
-                val samples = FloatArray(pcm.remaining()) { pcm.get().toFloat() / 32768f }
-                return SpeechSegment(samples, 0L, samples.size * 1000L / 16_000)
-            }
-            pos += 8 + len + (len and 1)
-        }
-        error("No data chunk in WAV")
     }
 }

@@ -1,0 +1,9 @@
+[
+  {"file": "en_01.wav", "lang": "en", "reference": "The train leaves at midnight, so we must hurry."},
+  {"file": "en_02.wav", "lang": "en", "reference": "She opened the door and found nobody waiting."},
+  {"file": "es_01.wav", "lang": "es", "reference": "Buenos días, ¿dónde está la estación de tren?"},
+  {"file": "fr_01.wav", "lang": "fr", "reference": "Je ne sais pas où il est allé hier soir."},
+  {"file": "de_01.wav", "lang": "de", "reference": "Das Wetter ist heute sehr schön."},
+  {"file": "ja_01.wav", "lang": "ja", "reference": "こんにちは、お元気ですか。"},
+  {"file": "hi_01.wav", "lang": "hi", "reference": "नमस्ते, आप कैसे हैं?"}
+]
