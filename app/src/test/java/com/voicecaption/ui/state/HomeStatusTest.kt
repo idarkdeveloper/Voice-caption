@@ -42,8 +42,9 @@ class HomeStatusTest {
     }
 
     @Test
-    fun doneWhileReadinessIsStillRecomputedCountsAsDownloading() {
-        assertEquals(HomeStatus.DOWNLOADING, homeStatus(downloads(DownloadState.Done)))
+    fun doneWithDownloadsStepStillNeedsDownload() {
+        // e.g. model deleted after a finished download: Done lingers, but the card must come back
+        assertEquals(HomeStatus.DOWNLOAD_NEEDED, homeStatus(downloads(DownloadState.Done)))
     }
 
     @Test

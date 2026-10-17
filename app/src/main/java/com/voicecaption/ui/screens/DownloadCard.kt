@@ -32,7 +32,8 @@ data class DownloadNeeds(val modelMegabytes: Int?, val needsPack: Boolean)
 
 /**
  * Download card for the idle, downloading and failed states. Labels and failure messages come from
- * the download controller (English) and are shown as they are. [Done][DownloadState.Done] shows nothing.
+ * the download controller (English) and are shown as they are. The caller shows the card only while
+ * the next setup step is DOWNLOADS, so a lingering [DownloadState.Done] renders like Idle (Download button).
  */
 @Composable
 fun DownloadCard(
@@ -43,7 +44,6 @@ fun DownloadCard(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (download is DownloadState.Done) return
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),

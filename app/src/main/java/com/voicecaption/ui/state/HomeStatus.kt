@@ -40,9 +40,11 @@ fun onboardingStep(state: MainUiState, introDone: Boolean, notificationsSkipped:
  * Status line for Home. Precedence, first match wins:
  * 1. `running` -> LISTENING (even if other flags are false; the service owns the truth).
  * 2. A permission step is still open (see [effectiveSetupStep]) -> NEEDS_SETUP.
- * 3. A download is in flight -> DOWNLOADING; one failed -> DOWNLOAD_FAILED. `Done` while the
- *    readiness recomputation is still pending also counts as DOWNLOADING (it is about to finish).
- * 4. Models or the language pack are missing -> DOWNLOAD_NEEDED.
+ * 3. A download is in flight -> DOWNLOADING; one failed -> DOWNLOAD_FAILED.
+ * 4. Models or the language pack are missing (next step DOWNLOADS) -> DOWNLOAD_NEEDED, for `Idle`
+ *    and also for `Done`: `Done` lingers until settings change, so after a model is deleted it
+ *    must not hide the download. (A one-frame flash right after a download completes, before
+ *    readiness refreshes, is accepted.)
  * 5. Everything present and `canStart` -> READY, otherwise NEEDS_SETUP.
  */
 fun homeStatus(state: MainUiState): HomeStatus {
@@ -52,8 +54,8 @@ fun homeStatus(state: MainUiState): HomeStatus {
     return when (state.download) {
         is DownloadState.Downloading -> HomeStatus.DOWNLOADING
         is DownloadState.Failed -> HomeStatus.DOWNLOAD_FAILED
-        DownloadState.Done -> if (step == SetupStep.DOWNLOADS) HomeStatus.DOWNLOADING else readyOrSetup(state)
-        DownloadState.Idle -> if (step == SetupStep.DOWNLOADS) HomeStatus.DOWNLOAD_NEEDED else readyOrSetup(state)
+        DownloadState.Done, DownloadState.Idle ->
+            if (step == SetupStep.DOWNLOADS) HomeStatus.DOWNLOAD_NEEDED else readyOrSetup(state)
     }
 }
 

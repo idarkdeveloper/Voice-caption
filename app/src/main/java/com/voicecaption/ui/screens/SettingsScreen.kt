@@ -1,6 +1,11 @@
 package com.voicecaption.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -70,7 +75,12 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
 
     Scaffold(
         topBar = {
-            Row(Modifier.padding(horizontal = Spacing.Small), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                    .padding(horizontal = Spacing.Small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconButton(onClick = actions.onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
@@ -106,7 +116,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
             SettingSlider(
                 label = stringResource(R.string.settings_size_label),
                 valueText = stringResource(R.string.settings_size_value, fontDraft),
-                value = fontDraft.toFloat(),
+                value = settings.fontSizeSp.toFloat(),
                 valueRange = MIN_FONT_SP.toFloat()..MAX_FONT_SP.toFloat(),
                 steps = MAX_FONT_SP - MIN_FONT_SP - 1,
                 onChange = { fontDraft = it.roundToInt() },
@@ -116,7 +126,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
             SettingSlider(
                 label = stringResource(R.string.settings_opacity_label),
                 valueText = stringResource(R.string.settings_opacity_value, opacityPercent.roundToInt()),
-                value = opacityPercent,
+                value = percentOf(settings.opacity).toFloat(),
                 valueRange = MIN_OPACITY_PERCENT.toFloat()..MAX_OPACITY_PERCENT.toFloat(),
                 steps = (MAX_OPACITY_PERCENT - MIN_OPACITY_PERCENT) / OPACITY_STEP_PERCENT - 1,
                 onChange = { opacityPercent = it },
