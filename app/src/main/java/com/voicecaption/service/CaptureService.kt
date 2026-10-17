@@ -281,23 +281,27 @@ class CaptureService : Service() {
     /**
      * Main thread: reports [messageRes] (on the overlay when allowed, else as a toast), stops the
      * capture right away and tears everything down after [MESSAGE_LINGER_MS] so it can be read.
+     * Guarantee: the delayed teardown is scheduled first, so it happens (once) even if showing the
+     * message fails.
      */
     private fun fail(messageRes: Int) {
         if (tornDown || failing) return
         failing = true
-        val text = getString(messageRes)
-        val renderer = overlay
-        monitor?.dispatch(ServiceEvent.UserStop)
-        capture?.stop()
-        if (renderer != null && renderer.canDrawOverlays()) {
-            renderer.show()
-            renderer.showMessage(text)
-        } else {
-            Toast.makeText(this, text, Toast.LENGTH_LONG).show()
-        }
         scope.launch(Dispatchers.Main) {
             delay(MESSAGE_LINGER_MS)
             teardown()
+        }
+        runCatching {
+            val text = getString(messageRes)
+            val renderer = overlay
+            monitor?.dispatch(ServiceEvent.UserStop)
+            capture?.stop()
+            if (renderer != null && renderer.canDrawOverlays()) {
+                renderer.show()
+                renderer.showMessage(text)
+            } else {
+                Toast.makeText(this, text, Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -316,21 +320,24 @@ class CaptureService : Service() {
         if (tornDown) return
         tornDown = true
         try {
-            monitor?.dispatch(ServiceEvent.UserStop)
-            capture?.stop()
-            // Flush first, then close the models: pipeline.stop() waits out any in-flight onFrame.
+            runCatching { monitor?.dispatch(ServiceEvent.UserStop) }
+            runCatching { capture?.stop() }
+            // Flush first; the native closes below only start after this has returned or thrown.
             runCatching { pipeline?.stop() }
-            scope.cancel()
+            runCatching { scope.cancel() }
             projection?.let { p ->
                 projectionCallback?.let { runCatching { p.unregisterCallback(it) } }
                 runCatching { p.stop() }
             }
-            closeNativeOffMain(whisper, vad, translator)
-            overlay?.hide()
+            runCatching { overlay?.hide() }
         } finally {
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            // Only stops the service if no newer start arrived since (that one is handled above).
-            stopSelfResult(latestStartId)
+            closeNativeOffMain(whisper, vad, translator)
+            try {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } finally {
+                // Only stops the service if no newer start arrived since (that one is handled above).
+                stopSelfResult(latestStartId)
+            }
         }
     }
 
