@@ -7,30 +7,30 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.TextUtils
-import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
+import android.widget.LinearLayout
 import android.widget.TextView
 import com.voicecaption.caption.CaptionFormatter
 import com.voicecaption.core.Caption
 import com.voicecaption.core.CaptionSettings
 
 /**
- * Floating caption plate: one [TextView] in a TYPE_APPLICATION_OVERLAY window.
+ * Floating captions: two stacked plates in one TYPE_APPLICATION_OVERLAY window. The translation
+ * plate is the main one; with "show original text" a smaller original-language plate sits above
+ * it. The two plates move together when dragged.
  *
  * Threading: every public method may be called from any thread; work is marshalled to the main
  * thread (run inline when already there, otherwise posted to a main-looper [Handler]).
  *
- * Touches: the window is NOT_FOCUSABLE | NOT_TOUCH_MODAL and wraps the plate, so touches outside the
- * plate reach the app underneath. Dragging the plate moves it vertically; the offset (distance from
- * the bottom edge) is kept in memory for the process lifetime and survives hide()/show() and
+ * Touches: the window is NOT_FOCUSABLE | NOT_TOUCH_MODAL and wraps the plates, so touches outside
+ * them reach the app underneath. Dragging a plate moves the window vertically; the offset (distance
+ * from the bottom edge) is kept in memory for the process lifetime and survives hide()/show() and
  * renderer re-creation. Persisting it to storage is a later task.
  */
 class OverlayRenderer(context: Context) {
@@ -40,7 +40,9 @@ class OverlayRenderer(context: Context) {
     private val density = appContext.resources.displayMetrics.density
 
     // Main-thread state below.
-    private var plate: TextView? = null
+    private var container: LinearLayout? = null
+    private var sourcePlate: TextView? = null
+    private var plate: TextView? = null // the translation plate
     private var attached = false
     private var alpha = OverlayMath.plateAlpha(CaptionSettings().opacity)
     private var debugLine: String? = null
@@ -55,14 +57,15 @@ class OverlayRenderer(context: Context) {
 
     fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(appContext)
 
-    /** Attaches the (initially empty, hidden) plate. No-op without overlay permission or if already shown. */
+    /** Attaches the (initially empty, hidden) plates. No-op without overlay permission or if already shown. */
     fun show() = onMain {
         if (attached || !canDrawOverlays()) return@onMain
-        val view = plate ?: createPlate().also { plate = it }
-        view.visibility = View.GONE
-        refreshGeometry(view)
+        if (container == null) createPlates()
+        val window = container ?: return@onMain
+        window.visibility = View.GONE
+        refreshGeometry()
         try {
-            windowManager.addView(view, layoutParams())
+            windowManager.addView(window, layoutParams())
             attached = true
         } catch (_: RuntimeException) {
             // Permission revoked between check and add (SecurityException) or a bad window token
@@ -72,56 +75,76 @@ class OverlayRenderer(context: Context) {
     }
 
     /**
-     * Shows the formatted captions; an empty list hides the text but keeps the window attached.
+     * Shows the captions; nothing to show hides the plates but keeps the window attached.
      * Replaces any message from [showMessage]. Opacity and font size apply on every call.
      */
     fun render(captions: List<Caption>, settings: CaptionSettings) = onMain {
-        val view = plate ?: return@onMain
+        val window = container ?: return@onMain
+        val translation = plate ?: return@onMain
+        val original = sourcePlate ?: return@onMain
         if (!attached) return@onMain
         lastCaptions = captions
         lastSettings = settings
-        val lines = CaptionFormatter.lines(captions, settings.bilingual)
+        val lines = CaptionFormatter.plates(captions, settings.bilingual)
         val debug = debugLine
-        if (lines.isEmpty() && debug != null) {
-            refreshGeometry(view)
-            applyStyle(view, DEBUG_SP, OverlayMath.plateAlpha(settings.opacity))
-            view.maxLines = 5
-            view.text = debug
-            view.visibility = View.VISIBLE
+        val plateAlpha = OverlayMath.plateAlpha(settings.opacity)
+        if (lines.isEmpty && debug == null) {
+            original.visibility = View.GONE
+            translation.visibility = View.GONE
+            window.visibility = View.GONE
             return@onMain
         }
-        if (lines.isEmpty()) {
-            view.text = ""
-            view.visibility = View.GONE
-            return@onMain
+        refreshGeometry()
+
+        if (lines.source.isEmpty()) {
+            original.visibility = View.GONE
+        } else {
+            applyStyle(original, settings.fontSizeSp * SOURCE_LINE_SCALE, plateAlpha, dimmed = true)
+            original.maxLines = MAX_LINES
+            original.text = lines.source.joinToString("\n")
+            original.visibility = View.VISIBLE
         }
-        refreshGeometry(view)
-        applyStyle(view, settings.fontSizeSp, OverlayMath.plateAlpha(settings.opacity))
-        // Two captions' worth of lines: 2 normally, 4 when each caption is source + translation.
-        view.maxLines = (if (settings.bilingual) MAX_LINES_BILINGUAL else MAX_LINES) + (if (debug != null) 4 else 0)
-        val body = buildText(captions, lines, settings.bilingual)
-        view.text = if (debug == null) body else SpannableStringBuilder(body).append('\n').append(debug)
-        view.visibility = View.VISIBLE
+
+        when {
+            lines.translation.isNotEmpty() -> {
+                applyStyle(translation, settings.fontSizeSp.toFloat(), plateAlpha)
+                translation.maxLines = MAX_LINES + (if (debug != null) DEBUG_EXTRA_LINES else 0)
+                val body = lines.translation.joinToString("\n")
+                translation.text = if (debug == null) body else body + "\n" + debug
+                translation.visibility = View.VISIBLE
+            }
+            debug != null -> {
+                applyStyle(translation, DEBUG_SP.toFloat(), plateAlpha)
+                translation.maxLines = MAX_LINES
+                translation.text = debug
+                translation.visibility = View.VISIBLE
+            }
+            else -> translation.visibility = View.GONE
+        }
+        window.visibility = View.VISIBLE
     }
 
     /** Shows a plain status/error message on the plate until the next [render] with captions. */
     fun showMessage(text: String) = onMain {
+        val window = container ?: return@onMain
         val view = plate ?: return@onMain
         if (!attached) return@onMain
-        refreshGeometry(view)
-        view.maxLines = MAX_LINES_BILINGUAL
+        refreshGeometry()
+        sourcePlate?.visibility = View.GONE
+        view.maxLines = MAX_LINES
         view.text = text
         view.visibility = View.VISIBLE
         applyStyle(view, null, alpha)
+        window.visibility = View.VISIBLE
     }
 
     /** Removes the window. Safe to call repeatedly. */
     fun hide() = onMain {
-        val view = plate ?: return@onMain
+        val window = container ?: return@onMain
         if (!attached) return@onMain
         attached = false
         try {
-            windowManager.removeView(view)
+            windowManager.removeView(window)
         } catch (_: IllegalArgumentException) {
             // View was already gone (e.g. window removed by the system); nothing to do.
         }
@@ -133,15 +156,18 @@ class OverlayRenderer(context: Context) {
 
     /**
      * Re-derives everything that depends on the CURRENT screen size (it changes on rotation and
-     * folding): the plate's max width, and the dragged vertical offset, re-clamped to the screen
+     * folding): the plates' max width, and the dragged vertical offset, re-clamped to the screen
      * height. Called before every show/render so a stale landscape width never leaks into portrait.
      */
-    private fun refreshGeometry(view: TextView) {
-        view.maxWidth = OverlayMath.maxPlateWidthPx(appContext.resources.displayMetrics.widthPixels)
-        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+    private fun refreshGeometry() {
+        val window = container ?: return
+        val maxWidth = OverlayMath.maxPlateWidthPx(appContext.resources.displayMetrics.widthPixels)
+        plate?.maxWidth = maxWidth
+        sourcePlate?.maxWidth = maxWidth
+        val lp = window.layoutParams as? WindowManager.LayoutParams ?: return
         if (!attached) return
-        val clamped = clampedOffset(view, lp.y)
-        if (clamped != lp.y) moveTo(view, clamped)
+        val clamped = clampedOffset(window, lp.y)
+        if (clamped != lp.y) moveTo(window, clamped)
     }
 
     private fun clampedOffset(view: View, requested: Int): Int {
@@ -154,49 +180,50 @@ class OverlayRenderer(context: Context) {
 
     private fun dp(v: Int): Int = (v * density).toInt()
 
-    private fun createPlate(): TextView {
+    private fun newPlate(window: LinearLayout): TextView {
         val view = TextView(appContext)
         view.setTextColor(Color.WHITE)
         view.gravity = Gravity.CENTER
         view.ellipsize = TextUtils.TruncateAt.END
         view.maxLines = MAX_LINES
         view.setPadding(dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP))
-        refreshGeometry(view)
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        view.setOnTouchListener(DragListener(appContext) { requested -> moveTo(view, requested) })
-        applyStyle(view, CaptionSettings().fontSizeSp, alpha)
+        view.setOnTouchListener(DragListener(appContext, window) { requested -> moveTo(window, requested) })
+        applyStyle(view, CaptionSettings().fontSizeSp.toFloat(), alpha)
         return view
     }
 
-    /** [fontSizeSp] null keeps the current size. */
-    private fun applyStyle(view: TextView, fontSizeSp: Int?, newAlpha: Int) {
+    private fun createPlates() {
+        val window = LinearLayout(appContext).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        val original = newPlate(window).apply { visibility = View.GONE }
+        val translation = newPlate(window)
+        window.addView(
+            original,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                .apply { bottomMargin = dp(PLATE_GAP_DP) },
+        )
+        window.addView(
+            translation,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT),
+        )
+        container = window
+        sourcePlate = original
+        plate = translation
+    }
+
+    /** [fontSizeSp] null keeps the current size. [dimmed] draws the text slightly softer (original-language plate). */
+    private fun applyStyle(view: TextView, fontSizeSp: Float?, newAlpha: Int, dimmed: Boolean = false) {
         alpha = newAlpha
-        if (fontSizeSp != null) view.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp.toFloat())
+        if (fontSizeSp != null) view.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp)
+        view.setTextColor(if (dimmed) Color.argb(DIMMED_TEXT_ALPHA, 255, 255, 255) else Color.WHITE)
         view.background = GradientDrawable().apply {
             setColor(Color.BLACK)
             this.alpha = newAlpha
             cornerRadius = dp(CORNER_DP).toFloat()
         }
-    }
-
-    /** Lines come from [CaptionFormatter]; in bilingual mode the source line of a translated caption is 80%. */
-    private fun buildText(captions: List<Caption>, lines: List<String>, bilingual: Boolean): CharSequence {
-        val sb = SpannableStringBuilder()
-        var i = 0
-        for (c in captions) {
-            val twoLines = CaptionFormatter.showsBoth(c, bilingual)
-            val count = if (twoLines) 2 else 1
-            for (k in 0 until count) {
-                if (i >= lines.size) break
-                if (sb.isNotEmpty()) sb.append('\n')
-                val start = sb.length
-                sb.append(lines[i++])
-                if (twoLines && k == 0) {
-                    sb.setSpan(RelativeSizeSpan(SOURCE_LINE_SCALE), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                }
-            }
-        }
-        return sb
     }
 
     private fun layoutParams() = WindowManager.LayoutParams(
@@ -211,21 +238,22 @@ class OverlayRenderer(context: Context) {
     }
 
     /** [requested] is the new requested distance from the bottom edge, in px. */
-    private fun moveTo(view: View, requested: Int) {
+    private fun moveTo(window: View, requested: Int) {
         if (!attached) return
-        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-        lp.y = clampedOffset(view, requested)
+        val lp = window.layoutParams as? WindowManager.LayoutParams ?: return
+        lp.y = clampedOffset(window, requested)
         bottomOffsetPx = lp.y
         try {
-            windowManager.updateViewLayout(view, lp)
+            windowManager.updateViewLayout(window, lp)
         } catch (_: IllegalArgumentException) {
             // View no longer attached.
         }
     }
 
-    /** Reports vertical drags of the plate and forwards a tap to performClick() for accessibility. */
+    /** Reports vertical drags of a plate (moving the whole [window]) and forwards a tap to performClick() for accessibility. */
     private class DragListener(
         context: Context,
+        private val window: View,
         private val onDrag: (Int) -> Unit,
     ) : View.OnTouchListener {
         private var startRawY = 0f
@@ -237,13 +265,13 @@ class OverlayRenderer(context: Context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startRawY = event.rawY
-                    startOffset = (v.layoutParams as? WindowManager.LayoutParams)?.y ?: 0
+                    startOffset = (window.layoutParams as? WindowManager.LayoutParams)?.y ?: 0
                     dragging = false
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dy = event.rawY - startRawY
                     if (!dragging && kotlin.math.abs(dy) > slop) dragging = true
-                    // Finger up (negative dy) raises the plate: offset from the bottom grows.
+                    // Finger up (negative dy) raises the plates: offset from the bottom grows.
                     if (dragging) onDrag(startOffset - dy.toInt())
                 }
                 MotionEvent.ACTION_UP -> if (!dragging) v.performClick()
@@ -255,12 +283,14 @@ class OverlayRenderer(context: Context) {
     private companion object {
         const val PADDING_DP = 12
         const val CORNER_DP = 8
+        const val PLATE_GAP_DP = 6
         const val DEFAULT_BOTTOM_DP = 48
         const val DEBUG_SP = 11
+        const val DEBUG_EXTRA_LINES = 4
         const val TOP_RESERVED_DP = 48
         const val MAX_LINES = 5
-        const val MAX_LINES_BILINGUAL = 8
         const val SOURCE_LINE_SCALE = 0.8f
+        const val DIMMED_TEXT_ALPHA = 217 // 85 %
 
         /** Remembered drag position (px from bottom); null until the user drags. Main thread only. */
         var bottomOffsetPx: Int? = null

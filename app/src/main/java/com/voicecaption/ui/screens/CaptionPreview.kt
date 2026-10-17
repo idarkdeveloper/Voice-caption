@@ -1,6 +1,7 @@
 package com.voicecaption.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +22,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voicecaption.R
@@ -45,14 +47,18 @@ private val BackdropBottom = Color(0xFF2E3A4A)
 private const val SOURCE_LINE_SCALE = 0.8f
 
 /**
- * Live preview of the overlay plate: black at the chosen opacity (floored like the real overlay),
- * white text, 8 dp radius, size and bilingual lines as set.
+ * Live preview of the overlay: the translation plate and, with "show original text", a smaller
+ * original-language plate above it. Black at the chosen opacity (floored like the real overlay),
+ * white text, 8 dp radius, size as set.
  */
 @Composable
 fun CaptionPreview(fontSizeSp: Int, opacity: Float, bilingual: Boolean, modifier: Modifier = Modifier) {
-    val lines = remember(bilingual) { CaptionFormatter.lines(listOf(SampleCaption), bilingual) }
-    val plate = Color.Black.copy(alpha = OverlayMath.plateAlpha(opacity) / 255f)
-    val description = stringResource(R.string.settings_preview_description, lines.joinToString(". "))
+    val plates = remember(bilingual) { CaptionFormatter.plates(listOf(SampleCaption), bilingual) }
+    val plateColor = Color.Black.copy(alpha = OverlayMath.plateAlpha(opacity) / 255f)
+    val description = stringResource(
+        R.string.settings_preview_description,
+        (plates.source + plates.translation).joinToString(". "),
+    )
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
@@ -63,23 +69,38 @@ fun CaptionPreview(fontSizeSp: Int, opacity: Float, bilingual: Boolean, modifier
             .semantics { contentDescription = description },
         contentAlignment = Alignment.BottomCenter,
     ) {
+        val available = maxWidth
         Column(
-            modifier = Modifier
-                .clearAndSetSemantics { }
-                .widthIn(max = maxWidth * OverlayMath.MAX_WIDTH_FRACTION)
-                .clip(RoundedCornerShape(Spacing.Small))
-                .background(plate)
-                .padding(horizontal = Spacing.Medium, vertical = Spacing.Small),
+            modifier = Modifier.clearAndSetSemantics { },
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.Small / 2),
         ) {
-            lines.forEachIndexed { index, line ->
-                val isSource = bilingual && lines.size > 1 && index == 0
-                Text(
-                    line,
-                    color = Color.White,
-                    fontSize = (if (isSource) fontSizeSp * SOURCE_LINE_SCALE else fontSizeSp.toFloat()).sp,
-                    textAlign = TextAlign.Center,
-                )
+            if (plates.source.isNotEmpty()) {
+                PreviewPlate(plates.source, fontSizeSp * SOURCE_LINE_SCALE, plateColor, available, dimmed = true)
             }
+            if (plates.translation.isNotEmpty()) {
+                PreviewPlate(plates.translation, fontSizeSp.toFloat(), plateColor, available, dimmed = false)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviewPlate(lines: List<String>, sizeSp: Float, color: Color, available: Dp, dimmed: Boolean) {
+    Column(
+        modifier = Modifier
+            .widthIn(max = available * OverlayMath.MAX_WIDTH_FRACTION)
+            .clip(RoundedCornerShape(Spacing.Small))
+            .background(color)
+            .padding(horizontal = Spacing.Medium, vertical = Spacing.Small),
+    ) {
+        lines.forEach { line ->
+            Text(
+                line,
+                color = if (dimmed) Color.White.copy(alpha = 0.85f) else Color.White,
+                fontSize = sizeSp.sp,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }
