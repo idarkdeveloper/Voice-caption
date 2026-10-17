@@ -92,4 +92,12 @@ class CaptionStabilizerTest {
         assertEquals(1, s.expire(9000).size)
         assertTrue(s.expire(9001).isEmpty())
     }
+
+    @Test
+    fun oneLineModeShowsOnlyTheNewestCaption() {
+        val s = CaptionStabilizer(maxLines = 1)
+        s.onSourceText(1, "old", 0)
+        val out = s.onSourceText(2, "new", 10)
+        assertEquals(listOf(2L), out.map { it.id })
+    }
 }
