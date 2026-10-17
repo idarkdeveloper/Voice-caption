@@ -11,13 +11,14 @@ class AutoRecognizerTest {
         private val textOf: (String) -> String,
         private val detected: String? = null,
         override val outputLanguage: String? = null,
+        private val event: String? = null,
     ) : SpeechRecognizer {
         val calls = mutableListOf<String>() // languages asked for
         var closed = false
         override suspend fun transcribe(segment: SpeechSegment, language: String) = recognize(segment, language).text
         override suspend fun recognize(segment: SpeechSegment, language: String): Transcript {
             calls += language
-            return Transcript(textOf(language), detected)
+            return Transcript(textOf(language), detected, event)
         }
         override fun close() { closed = true }
     }
@@ -130,5 +131,34 @@ class AutoRecognizerTest {
         val whisper = Fake({ "w" }); val sense = Fake({ "s" })
         auto(whisper, sense).close()
         assertEquals(true, whisper.closed && sense.closed)
+    }
+
+    @Test
+    fun theHeardSoundEventIsPassedThrough() = runTest {
+        val whisper = Fake({ "w" }, detected = "ja")
+        val sense = Fake({ "" }, detected = "ja", event = "bgm")
+        val r = auto(whisper, sense)
+        r.recognize(segment(), "auto"); r.recognize(segment(), "auto") // lock
+        assertEquals("bgm", r.recognize(segment(), "auto").event)
+    }
+
+    @Test
+    fun musicAndSoundTagsNeverVoteForALanguage() = runTest {
+        // Whisper named a language ("nn") for a music clip in a real check.
+        for (tag in listOf("[Music]", "(upbeat music)", "♪", "(applause)", "(The sound of")) {
+            val r = auto(Fake({ tag }, detected = "nn"))
+            repeat(6) { r.recognize(segment(), "auto") }
+            assertNull(tag, r.lockedLanguage)
+        }
+    }
+
+    @Test
+    fun wordsAfterMusicStillDecideTheLanguage() = runTest {
+        var n = 0
+        val r = auto(Fake({ if (n++ < 3) "[Music]" else "konnichiwa" }, detected = "ja"))
+        repeat(3) { r.recognize(segment(), "auto") }
+        assertNull(r.lockedLanguage)
+        repeat(2) { r.recognize(segment(), "auto") }
+        assertEquals("ja", r.lockedLanguage)
     }
 }

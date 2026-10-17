@@ -17,7 +17,7 @@ fun isAutoLanguage(code: String): Boolean = code.isBlank() || code.trim().equals
  *   those languages, so Cantonese is told apart from Mandarin.
  * - Everything else stays on [whisper], now told the language.
  * Only whole sentences vote (not live partials, which repeat the same sentence), and only ones with
- * at least [minVoteMs] of audio and some recognized text, so music and sound effects do not decide.
+ * at least [minVoteMs] of audio and real words (not music or sound tags), so those do not decide.
  * Until a language is locked, captions are decoded with Whisper's own detection; [Transcript.language]
  * is null then, so the pipeline shows the original text without translating it.
  *
@@ -65,8 +65,10 @@ class AutoRecognizer(
         val t = whisper.recognize(segment, "")
         currentOutputLanguage = whisper.outputLanguage
         val longEnough = segment.endMs - segment.startMs >= minVoteMs
-        val locked = if (!segment.partial && longEnough && t.text.isNotBlank()) detector.vote(t.language) else detector.locked
-        return Transcript(t.text, locked)
+        // Only real words vote: Whisper names a language for music and sound tags too ("[Music]" came
+        // back as Norwegian in a test), which must never decide the language of the film.
+        val locked = if (!segment.partial && longEnough && RecognizedText.hasWords(t.text)) detector.vote(t.language) else detector.locked
+        return Transcript(t.text, locked, t.event)
     }
 
     private suspend fun speak(segment: SpeechSegment, locked: String): Transcript {
@@ -75,11 +77,11 @@ class AutoRecognizer(
             val t = senseVoice.recognize(segment, AUTO_LANGUAGE)
             currentOutputLanguage = null
             // SenseVoice names Cantonese "yue"; ML Kit knows it as Chinese.
-            return Transcript(t.text, translationCode(t.language ?: locked))
+            return Transcript(t.text, translationCode(t.language ?: locked), t.event)
         }
         val t = whisper.recognize(segment, locked)
         currentOutputLanguage = whisper.outputLanguage
-        return Transcript(t.text, locked)
+        return Transcript(t.text, locked, t.event)
     }
 
     private suspend fun decideRoute(locked: String): Route {

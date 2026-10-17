@@ -4,9 +4,10 @@ import com.voicecaption.core.SpeechSegment
 
 /**
  * Recognized [text] and, when the recognizer knows it, the [language] that was spoken (a lower-case
- * ISO 639-1 code such as "ja"). Null means unknown, never "auto".
+ * ISO 639-1 code such as "ja") and the sound [event] it heard (lower case, e.g. "bgm" for background
+ * music from SenseVoice). Null means unknown, never "auto".
  */
-data class Transcript(val text: String, val language: String? = null)
+data class Transcript(val text: String, val language: String? = null, val event: String? = null)
 
 /** Turns one VAD-cut [SpeechSegment] into text. */
 interface SpeechRecognizer {
@@ -30,6 +31,9 @@ interface SpeechRecognizer {
     /** Releases native resources. Idempotent; [transcribe] afterwards throws [IllegalStateException]. */
     fun close()
 }
+
+/** "<|BGM|>" -> "bgm"; blank -> null. */
+internal fun normalizeEvent(raw: String?): String? = normalizeDetectedLanguage(raw)
 
 /** "<|ja|>" or " JA " -> "ja"; blank or "auto" -> null. */
 internal fun normalizeDetectedLanguage(raw: String?): String? {

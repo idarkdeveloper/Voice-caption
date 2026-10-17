@@ -239,6 +239,7 @@ class CaptureService : Service() {
                 settings = { ServiceDependencies.settings() },
                 scope = scope,
                 clock = SystemClock::elapsedRealtime,
+                musicLabel = getString(R.string.caption_music),
             ).also { pipeline = it }
             val audio = AudioCapture(proj).also { capture = it }
 

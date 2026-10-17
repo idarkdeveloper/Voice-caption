@@ -39,6 +39,7 @@ class CaptionPipelineTest {
     private class FakeRecognizer(
         override val outputLanguage: String? = null,
         private val detectedLanguage: String? = null,
+        private val event: String? = null,
         private val reply: suspend (SpeechSegment, String) -> String,
     ) : SpeechRecognizer {
         val segmentStarts = mutableListOf<Long>()
@@ -49,7 +50,7 @@ class CaptionPipelineTest {
             return reply(segment, language)
         }
         override suspend fun recognize(segment: SpeechSegment, language: String) =
-            Transcript(transcribe(segment, language), detectedLanguage)
+            Transcript(transcribe(segment, language), detectedLanguage, event)
         override fun close() = Unit
     }
 
@@ -189,15 +190,16 @@ class CaptionPipelineTest {
     }
 
     @Test
-    fun blankAndBracketTagTranscriptsShowNothing() = runTest {
-        val outputs = ArrayDeque(listOf("", " ", "[Music]", "(applause)", "♪", "[BLANK_AUDIO]", " [Music] (laughs) ", "..."))
+    fun blankAndNonMusicTagTranscriptsShowNothing() = runTest {
+        // Music tags and note symbols now show "(music)"; see the music tests below.
+        val outputs = ArrayDeque(listOf("", " ", "(applause)", "[BLANK_AUDIO]", " [Laughter] (laughs) ", "..."))
         val r = rig(FakeRecognizer { _, _ -> outputs.removeFirst() })
         val errors = collectErrors(r)
-        repeat(8) {
+        repeat(6) {
             r.feedSpeech()
             runCurrent()
         }
-        assertEquals(8, r.recognizer.segmentStarts.size)
+        assertEquals(6, r.recognizer.segmentStarts.size)
         assertTrue(r.pipeline.captions.value.isEmpty())
         assertEquals(0, r.translator.calls)
         assertTrue(errors.isEmpty())
@@ -456,5 +458,68 @@ class CaptionPipelineTest {
         r.feedSpeech()
         runCurrent()
         assertEquals(listOf("es"), translator.sources)
+    }
+
+    private fun TestScope.visibleTexts(r: Rig) = r.pipeline.captions.value.map { it.translatedText ?: it.sourceText }
+
+    @Test
+    fun whisperMusicTagsShowAMusicCaption() = runTest {
+        for (tag in listOf("[Music]", "(upbeat music)", "[MUSIC PLAYING]", "♪", "♪♪", "(música)")) {
+            val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> tag }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+            r.feedSpeech()
+            runCurrent()
+            assertEquals(tag, listOf("(music)"), visibleTexts(r))
+        }
+    }
+
+    @Test
+    fun senseVoiceBackgroundMusicEventWithNoWordsShowsAMusicCaption() = runTest {
+        val r = rig(FakeRecognizer(event = "bgm") { _, _ -> "" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("(music)"), visibleTexts(r))
+    }
+
+    @Test
+    fun wordsOverBackgroundMusicAreCaptionedAsWordsNotAsMusic() = runTest {
+        val r = rig(FakeRecognizer(outputLanguage = "en", event = "bgm") { _, _ -> "Let's go" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("Let's go"), visibleTexts(r))
+    }
+
+    @Test
+    fun singingWithWordsIsShownAsTextNotAsMusic() = runTest {
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "♪ la la la ♪" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("♪ la la la ♪"), visibleTexts(r))
+    }
+
+    @Test
+    fun otherSoundTagsAreStillDropped() = runTest {
+        for (tag in listOf("[Applause]", "(laughs)", "[BLANK_AUDIO]")) {
+            val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> tag }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+            r.feedSpeech()
+            runCurrent()
+            assertTrue(tag, r.pipeline.captions.value.isEmpty())
+        }
+    }
+
+    @Test
+    fun continuousMusicKeepsASingleCaption() = runTest {
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "[Music]" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        repeat(3) { r.feedSpeech() }
+        runCurrent()
+        assertEquals(listOf("(music)"), visibleTexts(r))
+    }
+
+    @Test
+    fun speechAfterMusicIsShownNextToTheMusicCaption() = runTest {
+        var n = 0
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> if (n++ == 0) "[Music]" else "Hello" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        repeat(2) { r.feedSpeech() }
+        runCurrent()
+        assertEquals(listOf("(music)", "Hello"), visibleTexts(r))
     }
 }

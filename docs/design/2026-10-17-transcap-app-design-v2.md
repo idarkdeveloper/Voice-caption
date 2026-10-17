@@ -38,8 +38,9 @@ reference, not screenshots.
 5. **Two plates**: original-language box (smaller, slightly softer text) above the translation box. Each box is moved on its own; the original box stays stacked above the translation box until it is moved. A line not yet translated shows in the original box only. "Reset caption positions" in Settings.
 6. **Caption style**: size 14 to 32 sp (slider, or a - / + stepper for one-step changes), background opacity 50 to 100 %, five text colours, five background colours, custom `RRGGBB`, contrast warning below 4.5:1.
 7. **Languages**: 57 film and caption languages (the set both Whisper and ML Kit support). Swap button. The film language can also be **Auto-detect**: Whisper listens to the first sentences and names the language (it locks after two agreeing sentences of at least one second each, and stays for the session). Chinese, Japanese, Korean and Cantonese then move to SenseVoice if it is installed and the caption language is reachable; everything else stays on Whisper. Until the language is known, captions show the original text without translation (with English captions Whisper translates from the start, so this only affects other caption languages). Swap is off while Auto-detect is chosen.
-8. **Storage**: download, size shown, delete with confirmation.
-9. **Diagnostics line** (debug builds only): model, segment length, decode time, lag, raw recognizer text.
+8. **Music caption**: when the audio is only music, the translation box shows **(music)**. SenseVoice reports a background-music event; Whisper writes a music tag or note symbols; either, with no words, gives the caption. It stays as one caption while the music lasts, and words (including sung lyrics) are captioned as words. Music never counts when Auto-detect decides the film's language. Other sounds (applause, laughter) stay silent.
+9. **Storage**: download, size shown, delete with confirmation.
+10. **Diagnostics line** (debug builds only): model, segment length, decode time, lag, raw recognizer text.
 
 ### Designed here, not built yet
 | Proposal | Why | Source |
@@ -173,6 +174,7 @@ in `strings.xml`, the theme and the manifest all use it).
 | Download hint | (none) | Use Wi-Fi to avoid mobile data charges. | Sets expectations before a 240 MB download |
 | Live text hint (first run of captions) | (none) | Captions appear as people speak and may change as more words arrive. | Prevents confusion |
 | Move hint | (none) | While captions are on, drag each caption box up or down to place it. | Teaches the gesture (in Settings) |
+| Music only | (nothing shown) | (music) | Matches the common caption convention; same word in every UI language until translated *(intent)* |
 | Film language, detect for me | (none) | Auto-detect | Short, matches the other options |
 | Auto-detect helper | (none) | TransCap listens to the first sentences to find the film's language. Works best when captions are in English. | Says how it works and its limit |
 | Cancel download | Cancel download | Cancel download (keeps what's already downloaded) | Describes the consequence |

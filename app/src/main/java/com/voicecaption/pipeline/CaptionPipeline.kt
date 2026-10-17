@@ -1,5 +1,6 @@
 package com.voicecaption.pipeline
 
+import com.voicecaption.asr.RecognizedText
 import com.voicecaption.asr.SpeechRecognizer
 import com.voicecaption.asr.isAutoLanguage
 import com.voicecaption.caption.CaptionStabilizer
@@ -101,6 +102,8 @@ class CaptionPipeline(
     scope: CoroutineScope,
     private val clock: () -> Long,
     tickMs: Long = 500,
+    /** Caption shown while the recognizer hears only music (kept in one caption while it lasts). */
+    private val musicLabel: String = "(music)",
 ) {
     private class Job(val id: Long, val seq: Long, val segment: SpeechSegment, val queuedAtMs: Long)
 
@@ -140,6 +143,7 @@ class CaptionPipeline(
     private val newestSeq = java.util.concurrent.ConcurrentHashMap<Long, Long>() // utterance -> newest queued seq
     private var notReadyReported = false // worker-only
     private var segmentsRecognized = 0L // worker-only; successful transcribe() calls, noise included
+    private var musicCaptionId: Long? = null // worker-only; the caption currently showing [musicLabel]
 
     private val ticker = scope.launch {
         while (isActive) {
@@ -208,8 +212,8 @@ class CaptionPipeline(
         segmentsRecognized++
         val decodeMs = clock() - decodeStart
         val text = transcript.text
-        val cleaned = stripSoundTags(text)
-        val noise = isNoise(cleaned)
+        val cleaned = RecognizedText.stripSoundTags(text)
+        val noise = RecognizedText.isNoise(cleaned)
         // The language of the text we hold: what the recognizer already outputs, else the spoken
         // language (the chosen one, or the detected one for auto-detect; null while still unknown).
         val textLang = recognizer.outputLanguage ?: if (isAutoLanguage(s.sourceLang)) transcript.language else s.sourceLang
@@ -218,6 +222,10 @@ class CaptionPipeline(
                 recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs,
                 lastRaw = text.trim(), lastNoise = noise, lastLang = textLang.orEmpty(),
             )
+        }
+        if (RecognizedText.isMusic(transcript.event, text)) {
+            showMusic(job)
+            return
         }
         if (noise) return
         val shown = cleaned.trim()
@@ -260,30 +268,25 @@ class CaptionPipeline(
         }
     }
 
+    /** One "(music)" caption for as long as the music lasts: a following music segment refreshes it. */
+    private suspend fun showMusic(job: Job) {
+        mutex.withLock {
+            val id = musicCaptionId?.takeIf { known -> _captions.value.any { it.id == known } } ?: job.id
+            musicCaptionId = id
+            with(stabilizer) {
+                onSourceText(id, musicLabel, clock())
+                _captions.value = onTranslated(id, musicLabel, clock())
+            }
+        }
+        recordLag(job, 0)
+    }
+
     private fun recordLag(job: Job, translateMs: Long) {
         val lag = clock() - job.queuedAtMs
         bump { it.copy(lastTranslateMs = translateMs, lastLagMs = lag, maxLagMs = maxOf(it.maxLagMs, lag)) }
     }
 
     private companion object {
-        /** One or more whole-string `[...]` / `(...)` tags, e.g. "[Music]", "(applause)". */
-        val TAGS_ONLY = Regex("""(\s*(\[[^\]]*]|\([^)]*\))\s*)+""")
-
-        /**
-         * Removes a cut-off sound-effect note: an unfinished "(The sound of" or "[Music" and everything
-         * after it. Complete tags inside real speech are left as they are.
-         */
-        fun stripSoundTags(text: String): String {
-            val open = text.indexOfFirst { it == '(' || it == '[' }
-            if (open < 0) return text
-            val closer = if (text[open] == '(') ')' else ']'
-            return if (text.indexOf(closer, open) >= 0) text else text.substring(0, open).trim()
-        }
-
-        /** Whisper's non-speech output: blank, only bracketed tags, or no letter/digit at all ("♪", "..."). */
-        fun isNoise(text: String): Boolean =
-            text.isBlank() || TAGS_ONLY.matches(text) || text.none { it.isLetterOrDigit() }
-
         /** Compares primary language subtags case-insensitively: "en", "EN_us" and "en-GB" are the same. */
         fun sameLanguage(a: String, b: String): Boolean = primary(a) == primary(b)
 

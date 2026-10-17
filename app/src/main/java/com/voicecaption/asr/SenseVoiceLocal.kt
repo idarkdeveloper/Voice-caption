@@ -53,7 +53,7 @@ class SenseVoiceLocal(private val modelDir: File) : SpeechRecognizer {
                     stream.acceptWaveform(segment.samples, SAMPLE_RATE)
                     rec.decode(stream)
                     val result = rec.getResult(stream)
-                    Transcript(result.text.trim(), normalizeDetectedLanguage(result.lang))
+                    Transcript(result.text.trim(), normalizeDetectedLanguage(result.lang), normalizeEvent(result.event))
                 } finally {
                     stream.release()
                 }
