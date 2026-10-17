@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">Voice Caption</string>
+    <string name="capture_channel_name">Live captions</string>
+    <string name="capture_notification_title">Live captions are on</string>
+    <string name="capture_notification_text">Captioning the sound playing on this phone</string>
+    <string name="capture_action_stop">Stop</string>
+    <string name="capture_error_overlay_permission">Allow \"Display over other apps\" in the app first</string>
+    <string name="capture_error_record_audio">Allow the microphone permission in the app first</string>
+    <string name="capture_error_source_language">Choose the film\'s language in the app first</string>
+    <string name="capture_error_model_missing">Download the speech model in the app first</string>
+    <string name="capture_error_start_failed">Couldn\'t start captions. Please try again</string>
+    <string name="capture_error_unexpected">Captions stopped because of an error</string>
+    <string name="capture_blocked">This app doesn\'t allow audio capture</string>
+    <string name="capture_translation_missing">Translation pack not downloaded. Open the app to download</string>
 </resources>

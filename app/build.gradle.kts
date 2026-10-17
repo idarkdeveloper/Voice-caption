@@ -56,6 +56,7 @@ dependencies {
 
     implementation(libs.mlkit.translate)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.coroutines.android) // Dispatchers.Main for the overlay thread
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
