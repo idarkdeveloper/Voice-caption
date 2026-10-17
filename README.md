@@ -67,7 +67,7 @@ Field tests on a Samsung Galaxy S26 Ultra with anime and reels, plus container t
 | Decode time per sentence | Whisper base 0.2–0.6 s, Whisper small 0.7–1.4 s, SenseVoice 51–118 ms |
 | Japanese, Chinese, Korean | SenseVoice (2024-07-17 build) is faster and more accurate than Whisper. The 2025-09-09 build gave wrong output, so the older one is pinned. |
 | Language ID | Correct for ja, en, ko and zh. SenseVoice's own auto mode also got Cantonese. |
-| Known weak spots | Whisper's translate mode can repeat itself, ML Kit wording can be awkward, caption box positions reset on restart. |
+| Known weak spots | Whisper's translate mode can repeat itself, ML Kit wording can be awkward. |
 
 A formal on-device benchmark ([`docs/benchmarks/free-tier.md`](docs/benchmarks/free-tier.md)) has **not been run yet**. Treat these numbers as field observations.
 
@@ -100,4 +100,4 @@ How it works inside: `AudioCapture → FrameChunker → VadSegmenter (Silero) �
 
 ## 🗺️ Status
 
-Early. The free tier works end to end on a real phone. Not yet done: a searchable language list, saved caption box positions, a formal benchmark, `targetSdk 35`, store packaging and a privacy policy. **No `LICENSE` file has been added yet**, so no licence is granted until one is.
+Early. The free tier works end to end on a real phone. Not yet done: a searchable language list, a formal benchmark, `targetSdk 35`, store packaging and a privacy policy. **No `LICENSE` file has been added yet**, so no licence is granted until one is.

@@ -1,6 +1,8 @@
 package com.voicecaption.overlay
 
 import android.content.Context
+import com.voicecaption.service.ServiceDependencies
+import kotlin.math.roundToInt
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -66,6 +68,7 @@ class OverlayRenderer(context: Context) {
         val original = sourcePlate ?: return@onMain
         translation.visibility = View.GONE
         original.visibility = View.GONE
+        loadSavedPositions()
         try {
             windowManager.addView(translation, layoutParams(translationOffsetPx ?: dp(DEFAULT_BOTTOM_DP)))
             windowManager.addView(original, layoutParams(originalOffsetPx ?: dp(DEFAULT_BOTTOM_DP)))
@@ -177,6 +180,20 @@ class OverlayRenderer(context: Context) {
         originalOffsetPx?.let { offset -> sourcePlate?.let { placeAt(it, offset) } }
     }
 
+    /** Once per process: picks up the positions the user saved on an earlier run. */
+    private fun loadSavedPositions() {
+        if (positionsLoaded) return
+        positionsLoaded = true
+        val s = ServiceDependencies.settings()
+        translationOffsetPx = s.translationOffsetDp?.let { dp(it) }
+        originalOffsetPx = s.originalOffsetDp?.let { dp(it) }
+    }
+
+    private fun savePositions() {
+        fun toDp(px: Int) = (px / density).roundToInt()
+        ServiceDependencies.savePositions(translationOffsetPx?.let(::toDp), originalOffsetPx?.let(::toDp))
+    }
+
     /** Moves [view]'s window to [offsetPx] (clamped) without recording it as a user choice. */
     private fun placeAt(view: View, offsetPx: Int) {
         val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
@@ -232,7 +249,9 @@ class OverlayRenderer(context: Context) {
         view.maxLines = MAX_LINES
         view.setPadding(dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP))
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        view.setOnTouchListener(DragListener(appContext) { requested -> moveTo(view, requested, isOriginal) })
+        view.setOnTouchListener(
+            DragListener(appContext, onDragEnd = ::savePositions) { requested -> moveTo(view, requested, isOriginal) },
+        )
         applyStyle(view, CaptionSettings().fontSizeSp.toFloat(), alpha, CaptionSettings())
         return view
     }
@@ -282,6 +301,7 @@ class OverlayRenderer(context: Context) {
     /** Reports vertical drags of one plate and forwards a tap to performClick() for accessibility. */
     private class DragListener(
         context: Context,
+        private val onDragEnd: () -> Unit,
         private val onDrag: (Int) -> Unit,
     ) : View.OnTouchListener {
         private var startRawY = 0f
@@ -302,7 +322,7 @@ class OverlayRenderer(context: Context) {
                     // Finger up (negative dy) raises the plate: offset from the bottom grows.
                     if (dragging) onDrag(startOffset - dy.toInt())
                 }
-                MotionEvent.ACTION_UP -> if (!dragging) v.performClick()
+                MotionEvent.ACTION_UP -> if (dragging) onDragEnd() else v.performClick()
             }
             return true
         }
@@ -323,14 +343,17 @@ class OverlayRenderer(context: Context) {
         /** Remembered drag positions (px from bottom); null until the user drags that plate. Main thread only. */
         private var translationOffsetPx: Int? = null
         private var originalOffsetPx: Int? = null
+        private var positionsLoaded = false
 
         /**
          * Forgets both dragged positions: the translation plate returns to the default spot and the
          * original plate stacks above it again. Takes effect on the next caption.
          */
         fun resetPositions() {
+            positionsLoaded = true // the saved positions are being cleared; do not reload them
             translationOffsetPx = null
             originalOffsetPx = null
+            ServiceDependencies.savePositions(null, null)
         }
     }
 }

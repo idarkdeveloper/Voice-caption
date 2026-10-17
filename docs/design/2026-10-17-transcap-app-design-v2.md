@@ -46,7 +46,7 @@ reference, not screenshots.
 | Proposal | Why | Source |
 |---|---|---|
 | Searchable caption-language list with a downloaded state and size per language | Shows what is ready offline before the user starts | Reference screenshots |
-| Remember the plate position across app restarts | Currently kept in memory only | Spec open item |
+| Remember the box positions across app restarts | Saved when you let go of a drag; Reset clears them | Done |
 | First-time hint explaining that live text can change | Prevents "the caption changed" confusion | Field test |
 
 ## 3. Colour

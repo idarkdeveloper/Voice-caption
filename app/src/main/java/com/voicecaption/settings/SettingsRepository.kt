@@ -28,6 +28,8 @@ internal object SettingsKeys {
     val modelSize = stringPreferencesKey("model_size")
     val autoModel = booleanPreferencesKey("auto_model")
     val showDiagnostics = booleanPreferencesKey("show_diagnostics")
+    val translationOffsetDp = intPreferencesKey("translation_offset_dp")
+    val originalOffsetDp = intPreferencesKey("original_offset_dp")
     val textColor = intPreferencesKey("text_color")
     val plateColor = intPreferencesKey("plate_color")
 }
@@ -38,6 +40,8 @@ internal val FONT_SIZE_RANGE_SP = 14..32
  * Clamps [raw] into legal values: font 14..32 sp, opacity 0.5..1.0 (the overlay's readability
  * floor), languages coerced to a supported code (fallback "en"; never "auto").
  */
+private const val MAX_OFFSET_DP = 3000
+
 internal fun validate(raw: CaptionSettings): CaptionSettings {
     val defaults = CaptionSettings()
     return raw.copy(
@@ -47,6 +51,8 @@ internal fun validate(raw: CaptionSettings): CaptionSettings {
         opacity = if (raw.opacity.isNaN()) defaults.opacity else raw.opacity.coerceIn(OverlayMath.MIN_OPACITY, 1f),
         textColor = ColorMath.opaque(raw.textColor),
         plateColor = ColorMath.opaque(raw.plateColor),
+        translationOffsetDp = raw.translationOffsetDp?.coerceIn(0, MAX_OFFSET_DP),
+        originalOffsetDp = raw.originalOffsetDp?.coerceIn(0, MAX_OFFSET_DP),
     )
 }
 
@@ -66,6 +72,8 @@ private fun Preferences.toSettings(): CaptionSettings {
             textColor = this[SettingsKeys.textColor] ?: d.textColor,
             plateColor = this[SettingsKeys.plateColor] ?: d.plateColor,
             showDiagnostics = this[SettingsKeys.showDiagnostics] ?: d.showDiagnostics,
+            translationOffsetDp = this[SettingsKeys.translationOffsetDp],
+            originalOffsetDp = this[SettingsKeys.originalOffsetDp],
         ),
     )
 }
@@ -94,6 +102,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             prefs[SettingsKeys.textColor] = next.textColor
             prefs[SettingsKeys.plateColor] = next.plateColor
             prefs[SettingsKeys.showDiagnostics] = next.showDiagnostics
+            next.translationOffsetDp?.let { prefs[SettingsKeys.translationOffsetDp] = it } ?: prefs.remove(SettingsKeys.translationOffsetDp)
+            next.originalOffsetDp?.let { prefs[SettingsKeys.originalOffsetDp] = it } ?: prefs.remove(SettingsKeys.originalOffsetDp)
         }
     }
 }

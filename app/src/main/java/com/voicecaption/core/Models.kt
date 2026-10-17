@@ -46,6 +46,10 @@ data class CaptionSettings(
     val plateColor: Int = ColorMath.BLACK,
     /** Debug builds only: show the speed and recognition stats line inside the caption box. */
     val showDiagnostics: Boolean = false,
+    /** Where the user dragged the translation box, in dp from the bottom edge; null = default spot. */
+    val translationOffsetDp: Int? = null,
+    /** Where the user dragged the original-language box, in dp from the bottom edge; null = stacked above the translation. */
+    val originalOffsetDp: Int? = null,
 ) {
     /** The model that will really run (and be downloaded) for these settings. */
     val activeModel: ModelSize get() = ModelChoice.resolve(autoModel, modelSize, sourceLang)

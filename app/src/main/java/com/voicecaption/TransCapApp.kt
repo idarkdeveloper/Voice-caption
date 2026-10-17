@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.voicecaption.app.AppContainer
 import com.voicecaption.service.ServiceDependencies
+import kotlinx.coroutines.launch
 
 /** Application class: creates the [AppContainer] and plugs the live settings into the service. */
 class TransCapApp : Application() {
@@ -16,6 +17,13 @@ class TransCapApp : Application() {
         container = AppContainer(this)
         val settings = container.settingsState // start sharing now so the service sees real values soon
         ServiceDependencies.settings = { settings.value }
+        ServiceDependencies.savePositions = { translationDp, originalDp ->
+            container.appScope.launch {
+                container.settingsRepository.update {
+                    it.copy(translationOffsetDp = translationDp, originalOffsetDp = originalDp)
+                }
+            }
+        }
     }
 }
 

@@ -117,4 +117,23 @@ class SettingsRepositoryTest {
 
         assertEquals(true, SettingsRepository(store(backgroundScope, file)).current().showDiagnostics)
     }
+
+    @Test
+    fun captionPositionsArePersistedClampedAndCanBeCleared() = runTest {
+        val file = tmp.newFile("pos.preferences_pb")
+        val scope = CoroutineScope(Job())
+        val repo = SettingsRepository(store(scope, file))
+        assertEquals(null, repo.current().translationOffsetDp)
+        repo.update { it.copy(translationOffsetDp = 220, originalOffsetDp = -5) }
+        val saved = repo.current()
+        assertEquals(220, saved.translationOffsetDp)
+        assertEquals(0, saved.originalOffsetDp) // clamped
+        repo.update { it.copy(translationOffsetDp = null, originalOffsetDp = null) }
+        scope.cancel()
+        scope.coroutineContext[Job]!!.join()
+
+        val got = SettingsRepository(store(backgroundScope, file)).current()
+        assertEquals(null, got.translationOffsetDp)
+        assertEquals(null, got.originalOffsetDp)
+    }
 }
