@@ -105,4 +105,28 @@ class VadSegmenterTest {
         assertEquals(2, out.size)
         assertEquals(33 * frameMs, out[1].startMs)
     }
+
+    @Test
+    fun speechlessContinuationAfterForcedCutIsDropped() {
+        val (segmenter, out) = run(script(true to 188, false to 13))
+        assertEquals(1, out.size)
+        assertEquals(188 * frameMs, out[0].endMs)
+        assertNull(segmenter.flush())
+    }
+
+    @Test
+    fun continuationWithSpeechAfterCutStillEmits() {
+        val (segmenter, out) = run(script(true to 250, false to 13))
+        assertEquals(2, out.size)
+        assertEquals(188 * frameMs - 500, out[1].startMs)
+        assertEquals(263 * frameMs, out[1].endMs)
+        assertNull(segmenter.flush())
+    }
+
+    @Test
+    fun flushDropsBlipShorterThanMinSpeech() {
+        val (segmenter, out) = run(script(true to 5))
+        assertTrue(out.isEmpty())
+        assertNull(segmenter.flush())
+    }
 }

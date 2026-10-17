@@ -24,8 +24,9 @@ data class VadConfig(
  * are dropped. If a segment's buffered audio reaches [VadConfig.maxSegmentMs] it is cut after
  * the frame that reaches it (so lengths overshoot by less than one frame), and the last
  * [VadConfig.overlapMs] of samples seed the next segment. Overlap is carried only across forced
- * cuts. A continuation segment is never dropped for being short, but is not emitted at all if
- * it holds nothing beyond the carried overlap.
+ * cuts. A continuation segment is exempt from minSpeech, but is dropped (on close and on flush)
+ * unless at least one speech frame arrived after the cut, since otherwise it holds only the
+ * already-emitted overlap plus silence.
  *
  * Not thread-safe.
  */
@@ -89,7 +90,12 @@ class VadSegmenter(
 
     private fun emitIfValid(): SpeechSegment? {
         if (newFrames == 0) return null
-        if (!continuation && speechFrames * config.frameMs < config.minSpeechMs) return null
+        // A continuation needs speech seen after the cut; otherwise it is only already-emitted overlap.
+        if (continuation) {
+            if (speechFrames == 0) return null
+        } else if (speechFrames * config.frameMs < config.minSpeechMs) {
+            return null
+        }
         return SpeechSegment(buffer.copyOf(size), startMs, endMs)
     }
 
