@@ -394,4 +394,18 @@ class CaptionPipelineTest {
         assertEquals(provisional[0].id, shown[0].id)
         assertEquals("T(final text)", shown[0].translatedText)
     }
+
+    @Test
+    fun soundEffectNotesAreRemovedFromRecognizedText() = runTest {
+        val tr = FakeTranslator()
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "(The sound of" }, tr, CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertTrue(r.pipeline.captions.value.isEmpty()) // an unfinished note is dropped entirely
+
+        val r2 = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "I'm sorry (The sound of" }, tr, CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r2.feedSpeech()
+        runCurrent()
+        assertEquals("I'm sorry", r2.pipeline.captions.value.single().translatedText)
+    }
 }

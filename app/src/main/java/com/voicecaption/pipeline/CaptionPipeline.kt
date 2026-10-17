@@ -204,10 +204,11 @@ class CaptionPipeline(
         }
         segmentsRecognized++
         val decodeMs = clock() - decodeStart
-        val noise = isNoise(text)
+        val cleaned = stripSoundTags(text)
+        val noise = isNoise(cleaned)
         bump { it.copy(recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs, lastRaw = text.trim(), lastNoise = noise) }
         if (noise) return
-        val shown = text.trim()
+        val shown = cleaned.trim()
 
         if (sameLanguage(recognizer.outputLanguage ?: s.sourceLang, s.targetLang)) {
             update {
@@ -250,6 +251,17 @@ class CaptionPipeline(
     private companion object {
         /** One or more whole-string `[...]` / `(...)` tags, e.g. "[Music]", "(applause)". */
         val TAGS_ONLY = Regex("""(\s*(\[[^\]]*]|\([^)]*\))\s*)+""")
+
+        /**
+         * Removes a cut-off sound-effect note: an unfinished "(The sound of" or "[Music" and everything
+         * after it. Complete tags inside real speech are left as they are.
+         */
+        fun stripSoundTags(text: String): String {
+            val open = text.indexOfFirst { it == '(' || it == '[' }
+            if (open < 0) return text
+            val closer = if (text[open] == '(') ')' else ']'
+            return if (text.indexOf(closer, open) >= 0) text else text.substring(0, open).trim()
+        }
 
         /** Whisper's non-speech output: blank, only bracketed tags, or no letter/digit at all ("♪", "..."). */
         fun isNoise(text: String): Boolean =
