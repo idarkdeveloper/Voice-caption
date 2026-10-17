@@ -21,6 +21,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voicecaption.asr.ModelCatalog
 import com.voicecaption.core.ModelSize
+import com.voicecaption.overlay.OverlayRenderer
 import com.voicecaption.service.CaptureService
 import com.voicecaption.ui.permissions.Permissions
 import com.voicecaption.ui.screens.HomeActions
@@ -157,6 +158,7 @@ fun AppRoot(vm: MainViewModel) {
                 onFontSize = vm::onFontSize,
                 onOpacity = vm::onOpacity,
                 onBilingual = vm::onBilingual,
+                onResetPositions = { OverlayRenderer.resetPositions() },
                 onTextColor = vm::onTextColor,
                 onPlateColor = vm::onPlateColor,
                 onModelSize = vm::onModelSize,

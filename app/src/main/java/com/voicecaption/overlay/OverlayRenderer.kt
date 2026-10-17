@@ -14,24 +14,26 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.WindowManager
-import android.widget.LinearLayout
 import android.widget.TextView
 import com.voicecaption.caption.CaptionFormatter
 import com.voicecaption.core.Caption
 import com.voicecaption.core.CaptionSettings
 
 /**
- * Floating captions: two stacked plates in one TYPE_APPLICATION_OVERLAY window. The translation
- * plate is the main one; with "show original text" a smaller original-language plate sits above
- * it. The two plates move together when dragged.
+ * Floating captions: two plates, each in its own TYPE_APPLICATION_OVERLAY window. The translation
+ * plate is the main one; with "show original text" a smaller original-language plate sits above it.
+ *
+ * Moving: each plate is dragged vertically on its own. Until the original plate has been dragged it
+ * stays stacked just above the translation plate and follows it (also when the translation grows to
+ * more lines); after that it keeps the position the user gave it. [resetPositions] puts both back.
  *
  * Threading: every public method may be called from any thread; work is marshalled to the main
  * thread (run inline when already there, otherwise posted to a main-looper [Handler]).
  *
- * Touches: the window is NOT_FOCUSABLE | NOT_TOUCH_MODAL and wraps the plates, so touches outside
- * them reach the app underneath. Dragging a plate moves the window vertically; the offset (distance
- * from the bottom edge) is kept in memory for the process lifetime and survives hide()/show() and
- * renderer re-creation. Persisting it to storage is a later task.
+ * Touches: the windows are NOT_FOCUSABLE | NOT_TOUCH_MODAL and wrap their plates, so touches outside
+ * a plate reach the app underneath. The offsets (distance from the bottom edge) are kept in memory
+ * for the process lifetime and survive hide()/show() and renderer re-creation. Persisting them to
+ * storage is a later task.
  */
 class OverlayRenderer(context: Context) {
     private val appContext = context.applicationContext
@@ -40,9 +42,8 @@ class OverlayRenderer(context: Context) {
     private val density = appContext.resources.displayMetrics.density
 
     // Main-thread state below.
-    private var container: LinearLayout? = null
-    private var sourcePlate: TextView? = null
-    private var plate: TextView? = null // the translation plate
+    private var sourcePlate: TextView? = null // original language, above
+    private var plate: TextView? = null // translation, the main plate
     private var attached = false
     private var alpha = OverlayMath.plateAlpha(CaptionSettings().opacity)
     private var debugLine: String? = null
@@ -60,26 +61,29 @@ class OverlayRenderer(context: Context) {
     /** Attaches the (initially empty, hidden) plates. No-op without overlay permission or if already shown. */
     fun show() = onMain {
         if (attached || !canDrawOverlays()) return@onMain
-        if (container == null) createPlates()
-        val window = container ?: return@onMain
-        window.visibility = View.GONE
-        refreshGeometry()
+        if (plate == null) createPlates()
+        val translation = plate ?: return@onMain
+        val original = sourcePlate ?: return@onMain
+        translation.visibility = View.GONE
+        original.visibility = View.GONE
         try {
-            windowManager.addView(window, layoutParams())
+            windowManager.addView(translation, layoutParams(translationOffsetPx ?: dp(DEFAULT_BOTTOM_DP)))
+            windowManager.addView(original, layoutParams(originalOffsetPx ?: dp(DEFAULT_BOTTOM_DP)))
             attached = true
         } catch (_: RuntimeException) {
             // Permission revoked between check and add (SecurityException) or a bad window token
             // (BadTokenException): stay hidden rather than crash the service.
+            removeBoth()
             attached = false
         }
+        refreshGeometry()
     }
 
     /**
-     * Shows the captions; nothing to show hides the plates but keeps the window attached.
+     * Shows the captions; nothing to show hides the plates but keeps the windows attached.
      * Replaces any message from [showMessage]. Opacity and font size apply on every call.
      */
     fun render(captions: List<Caption>, settings: CaptionSettings) = onMain {
-        val window = container ?: return@onMain
         val translation = plate ?: return@onMain
         val original = sourcePlate ?: return@onMain
         if (!attached) return@onMain
@@ -91,7 +95,6 @@ class OverlayRenderer(context: Context) {
         if (lines.isEmpty && debug == null) {
             original.visibility = View.GONE
             translation.visibility = View.GONE
-            window.visibility = View.GONE
             return@onMain
         }
         refreshGeometry()
@@ -121,12 +124,11 @@ class OverlayRenderer(context: Context) {
             }
             else -> translation.visibility = View.GONE
         }
-        window.visibility = View.VISIBLE
+        restack()
     }
 
-    /** Shows a plain status/error message on the plate until the next [render] with captions. */
+    /** Shows a plain status/error message on the translation plate until the next [render] with captions. */
     fun showMessage(text: String) = onMain {
-        val window = container ?: return@onMain
         val view = plate ?: return@onMain
         if (!attached) return@onMain
         refreshGeometry()
@@ -135,18 +137,23 @@ class OverlayRenderer(context: Context) {
         view.text = text
         view.visibility = View.VISIBLE
         applyStyle(view, null, alpha, lastSettings)
-        window.visibility = View.VISIBLE
+        restack()
     }
 
-    /** Removes the window. Safe to call repeatedly. */
+    /** Removes both windows. Safe to call repeatedly. */
     fun hide() = onMain {
-        val window = container ?: return@onMain
         if (!attached) return@onMain
         attached = false
-        try {
-            windowManager.removeView(window)
-        } catch (_: IllegalArgumentException) {
-            // View was already gone (e.g. window removed by the system); nothing to do.
+        removeBoth()
+    }
+
+    private fun removeBoth() {
+        for (view in listOfNotNull(plate, sourcePlate)) {
+            try {
+                windowManager.removeView(view)
+            } catch (_: IllegalArgumentException) {
+                // View was already gone (e.g. window removed by the system); nothing to do.
+            }
         }
     }
 
@@ -156,18 +163,46 @@ class OverlayRenderer(context: Context) {
 
     /**
      * Re-derives everything that depends on the CURRENT screen size (it changes on rotation and
-     * folding): the plates' max width, and the dragged vertical offset, re-clamped to the screen
-     * height. Called before every show/render so a stale landscape width never leaks into portrait.
+     * folding): the plates' max width, and each dragged vertical offset, re-clamped to the screen
+     * height. Called before every render so a stale landscape width never leaks into portrait.
      */
     private fun refreshGeometry() {
-        val window = container ?: return
         val maxWidth = OverlayMath.maxPlateWidthPx(appContext.resources.displayMetrics.widthPixels)
         plate?.maxWidth = maxWidth
         sourcePlate?.maxWidth = maxWidth
-        val lp = window.layoutParams as? WindowManager.LayoutParams ?: return
         if (!attached) return
-        val clamped = clampedOffset(window, lp.y)
-        if (clamped != lp.y) moveTo(window, clamped)
+        // Apply the remembered positions (or the defaults after a reset), clamped to this screen.
+        // Clamping never overwrites the remembered value, so rotating back restores it.
+        plate?.let { placeAt(it, translationOffsetPx ?: dp(DEFAULT_BOTTOM_DP)) }
+        originalOffsetPx?.let { offset -> sourcePlate?.let { placeAt(it, offset) } }
+    }
+
+    /** Moves [view]'s window to [offsetPx] (clamped) without recording it as a user choice. */
+    private fun placeAt(view: View, offsetPx: Int) {
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        val clamped = clampedOffset(view, offsetPx)
+        if (clamped != lp.y) {
+            lp.y = clamped
+            updateLayout(view, lp)
+        }
+    }
+
+    /**
+     * Keeps the original plate directly above the translation plate while the user has not placed it
+     * somewhere else. Cheap; called after every change that can alter the translation plate's size.
+     */
+    private fun restack() {
+        if (!attached || originalOffsetPx != null) return
+        val translation = plate ?: return
+        val original = sourcePlate ?: return
+        val tlp = translation.layoutParams as? WindowManager.LayoutParams ?: return
+        val olp = original.layoutParams as? WindowManager.LayoutParams ?: return
+        val height = if (translation.visibility == View.VISIBLE) translation.height else 0
+        val wanted = clampedOffset(original, OverlayMath.stackedOffset(tlp.y, height, dp(PLATE_GAP_DP)))
+        if (wanted != olp.y) {
+            olp.y = wanted
+            updateLayout(original, olp)
+        }
     }
 
     private fun clampedOffset(view: View, requested: Int): Int {
@@ -180,7 +215,16 @@ class OverlayRenderer(context: Context) {
 
     private fun dp(v: Int): Int = (v * density).toInt()
 
-    private fun newPlate(window: LinearLayout): TextView {
+    private fun createPlates() {
+        val original = newPlate(isOriginal = true).apply { visibility = View.GONE }
+        val translation = newPlate(isOriginal = false)
+        // The translation plate changes size with its text; the original plate follows it.
+        translation.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> restack() }
+        sourcePlate = original
+        plate = translation
+    }
+
+    private fun newPlate(isOriginal: Boolean): TextView {
         val view = TextView(appContext)
         view.setTextColor(Color.WHITE)
         view.gravity = Gravity.CENTER
@@ -188,30 +232,9 @@ class OverlayRenderer(context: Context) {
         view.maxLines = MAX_LINES
         view.setPadding(dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP))
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        view.setOnTouchListener(DragListener(appContext, window) { requested -> moveTo(window, requested) })
+        view.setOnTouchListener(DragListener(appContext) { requested -> moveTo(view, requested, isOriginal) })
         applyStyle(view, CaptionSettings().fontSizeSp.toFloat(), alpha, CaptionSettings())
         return view
-    }
-
-    private fun createPlates() {
-        val window = LinearLayout(appContext).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-        }
-        val original = newPlate(window).apply { visibility = View.GONE }
-        val translation = newPlate(window)
-        window.addView(
-            original,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                .apply { bottomMargin = dp(PLATE_GAP_DP) },
-        )
-        window.addView(
-            translation,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT),
-        )
-        container = window
-        sourcePlate = original
-        plate = translation
     }
 
     /** [fontSizeSp] null keeps the current size. [dimmed] draws the text slightly softer (original-language plate). */
@@ -227,7 +250,7 @@ class OverlayRenderer(context: Context) {
         }
     }
 
-    private fun layoutParams() = WindowManager.LayoutParams(
+    private fun layoutParams(offsetPx: Int) = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -235,26 +258,30 @@ class OverlayRenderer(context: Context) {
         PixelFormat.TRANSLUCENT,
     ).apply {
         gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-        y = bottomOffsetPx ?: dp(DEFAULT_BOTTOM_DP)
+        y = offsetPx
     }
 
-    /** [requested] is the new requested distance from the bottom edge, in px. */
-    private fun moveTo(window: View, requested: Int) {
+    /** [requested] is the new requested distance from the bottom edge, in px, for this plate only. */
+    private fun moveTo(view: View, requested: Int, isOriginal: Boolean) {
         if (!attached) return
-        val lp = window.layoutParams as? WindowManager.LayoutParams ?: return
-        lp.y = clampedOffset(window, requested)
-        bottomOffsetPx = lp.y
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        lp.y = clampedOffset(view, requested)
+        if (isOriginal) originalOffsetPx = lp.y else translationOffsetPx = lp.y
+        updateLayout(view, lp)
+        if (!isOriginal) restack()
+    }
+
+    private fun updateLayout(view: View, lp: WindowManager.LayoutParams) {
         try {
-            windowManager.updateViewLayout(window, lp)
+            windowManager.updateViewLayout(view, lp)
         } catch (_: IllegalArgumentException) {
             // View no longer attached.
         }
     }
 
-    /** Reports vertical drags of a plate (moving the whole [window]) and forwards a tap to performClick() for accessibility. */
+    /** Reports vertical drags of one plate and forwards a tap to performClick() for accessibility. */
     private class DragListener(
         context: Context,
-        private val window: View,
         private val onDrag: (Int) -> Unit,
     ) : View.OnTouchListener {
         private var startRawY = 0f
@@ -266,13 +293,13 @@ class OverlayRenderer(context: Context) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     startRawY = event.rawY
-                    startOffset = (window.layoutParams as? WindowManager.LayoutParams)?.y ?: 0
+                    startOffset = (v.layoutParams as? WindowManager.LayoutParams)?.y ?: 0
                     dragging = false
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dy = event.rawY - startRawY
                     if (!dragging && kotlin.math.abs(dy) > slop) dragging = true
-                    // Finger up (negative dy) raises the plates: offset from the bottom grows.
+                    // Finger up (negative dy) raises the plate: offset from the bottom grows.
                     if (dragging) onDrag(startOffset - dy.toInt())
                 }
                 MotionEvent.ACTION_UP -> if (!dragging) v.performClick()
@@ -281,19 +308,29 @@ class OverlayRenderer(context: Context) {
         }
     }
 
-    private companion object {
-        const val PADDING_DP = 12
-        const val CORNER_DP = 8
-        const val PLATE_GAP_DP = 6
-        const val DEFAULT_BOTTOM_DP = 48
-        const val DEBUG_SP = 11
-        const val DEBUG_EXTRA_LINES = 4
-        const val TOP_RESERVED_DP = 48
-        const val MAX_LINES = 5
-        const val SOURCE_LINE_SCALE = 0.8f
-        const val DIMMED_TEXT_ALPHA = 217 // 85 %
+    companion object {
+        private const val PADDING_DP = 12
+        private const val CORNER_DP = 8
+        private const val PLATE_GAP_DP = 6
+        private const val DEFAULT_BOTTOM_DP = 48
+        private const val DEBUG_SP = 11
+        private const val DEBUG_EXTRA_LINES = 4
+        private const val TOP_RESERVED_DP = 48
+        private const val MAX_LINES = 5
+        private const val SOURCE_LINE_SCALE = 0.8f
+        private const val DIMMED_TEXT_ALPHA = 217 // 85 %
 
-        /** Remembered drag position (px from bottom); null until the user drags. Main thread only. */
-        var bottomOffsetPx: Int? = null
+        /** Remembered drag positions (px from bottom); null until the user drags that plate. Main thread only. */
+        private var translationOffsetPx: Int? = null
+        private var originalOffsetPx: Int? = null
+
+        /**
+         * Forgets both dragged positions: the translation plate returns to the default spot and the
+         * original plate stacks above it again. Takes effect on the next caption.
+         */
+        fun resetPositions() {
+            translationOffsetPx = null
+            originalOffsetPx = null
+        }
     }
 }

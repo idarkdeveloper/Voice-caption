@@ -81,6 +81,8 @@
     <!-- Settings -->
     <string name="settings_preview">Preview</string>
     <string name="settings_preview_description">Caption preview: %1$s</string>
+    <string name="settings_move_hint">While captions are on, drag each caption box up or down to place it.</string>
+    <string name="settings_reset_positions">Reset caption positions</string>
     <string name="settings_size_label">Caption size</string>
     <string name="settings_size_value">%1$d sp</string>
     <string name="settings_opacity_label">Caption background</string>

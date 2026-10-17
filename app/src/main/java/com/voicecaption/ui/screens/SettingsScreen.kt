@@ -26,6 +26,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -57,6 +58,7 @@ class SettingsActions(
     val onFontSize: (Int) -> Unit,
     val onOpacity: (Float) -> Unit,
     val onBilingual: (Boolean) -> Unit,
+    val onResetPositions: () -> Unit,
     val onTextColor: (Int) -> Unit,
     val onPlateColor: (Int) -> Unit,
     val onModelSize: (ModelSize) -> Unit,
@@ -117,6 +119,15 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                     textColor = settings.textColor,
                     plateColor = settings.plateColor,
                 )
+                Text(
+                    stringResource(R.string.settings_move_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(
+                    onClick = actions.onResetPositions,
+                    modifier = Modifier.heightIn(min = Spacing.Target),
+                ) { Text(stringResource(R.string.settings_reset_positions)) }
             }
 
             SettingSlider(

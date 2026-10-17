@@ -15,6 +15,16 @@ read from a live design file. Values marked *(intent)* are design decisions not 
 accent for emphasis, and caption boxes whose contrast comes from their own background, never from
 the picture behind them. Plain words, no decoration that does not help reading.
 
+**Logo:** two stacked caption boxes: a small amber box (the original language) above a larger blue
+box (the translation), each with text lines, on slate `#090D18`. It is the product's idea drawn
+literally. Wordmark: **Trans** in the text colour, **Cap** in amber, system bold sans. Files in
+`docs/design/logo/`: `transcap-mark.svg`, `transcap-mark-transparent.svg`, `transcap-icon-512.png`
+(Play Store), `transcap-lockup.png`, `transcap-logo-sheet.png`. The Android launcher icon
+(`ic_launcher_foreground.xml`, `ic_launcher_monochrome.xml`) and the notification icon
+(`ic_notification.xml`) use the same shapes. Rules: keep the two colours as defined; keep every
+shape inside the launcher's 66 dp safe circle; the mark is never used smaller than 24 dp; the
+notification and themed icons are single colour.
+
 **References:** Android Live Caption (familiar behaviour), subtitle practice in film (reading time,
 two lines), dark media apps (video-first dark surfaces).
 
@@ -129,8 +139,10 @@ font size. Weight regular. Maximum 5 lines per box.
 | `PrimaryButton` | 56 dp |
 
 **Caption boxes:** radius 8 dp, padding 12 dp, 6 dp between the two boxes, bottom centre, at most 90 % of
-the screen width, 48 dp above the bottom edge by default. They share one window and move together
-when dragged; touches outside them reach the video.
+the screen width, 48 dp above the bottom edge by default. Each box is its own window and is dragged
+up or down on its own. Until the original box is moved it stays stacked just above the translation
+box and follows it, also when the translation grows to more lines. After that it keeps the position
+you gave it. "Reset caption positions" in Settings puts both back. Touches outside the boxes reach the video.
 
 **Density mode:** default.
 
@@ -191,6 +203,7 @@ Invariants for any agent working on TransCap:
 - User-facing words: "caption box" (not plate), "speech model", "film language", "captions in", "language pack". The app is **TransCap**.
 - Do not change `applicationId` (`com.voicecaption`); installed copies must keep updating.
 - Never log audio, transcripts or tokens.
+- Logo, launcher icon and notification icon share one set of shapes; change them together and keep all of them inside the 66 dp safe circle.
 - Debug-only diagnostics (stats line, raw text) must never appear in release builds.
 
 ---

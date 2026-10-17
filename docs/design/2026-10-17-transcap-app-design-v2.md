@@ -34,7 +34,7 @@ reference, not screenshots.
 2. **Speech model, Auto by default.** Explicit choices: Fast (Whisper base), Accurate (Whisper small), SenseVoice.
 3. **Live translation**: Whisper direct (to English) or ML Kit (all other pairs), on the phone.
 4. **Live partial captions**, refreshed every 0.8 s (SenseVoice) or 1.5 s (Whisper).
-5. **Two plates**: original-language box (smaller, slightly softer text) above the translation box. They move together. A line not yet translated shows in the original box only.
+5. **Two plates**: original-language box (smaller, slightly softer text) above the translation box. Each box is moved on its own; the original box stays stacked above the translation box until it is moved. A line not yet translated shows in the original box only. "Reset caption positions" in Settings.
 6. **Caption style**: size 14 to 32 sp, background opacity 50 to 100 %, five text colours, five background colours, custom `RRGGBB`, contrast warning below 4.5:1.
 7. **Languages**: 57 film and caption languages (the set both Whisper and ML Kit support). Swap button.
 8. **Storage**: download, size shown, delete with confirmation.
@@ -43,7 +43,6 @@ reference, not screenshots.
 ### Designed here, not built yet
 | Proposal | Why | Source |
 |---|---|---|
-| Move each plate separately | Reference apps do it; the original and translation can be placed apart | Reference screenshots |
 | Searchable caption-language list with a downloaded state and size per language | Shows what is ready offline before the user starts | Reference screenshots |
 | Text size stepper beside the slider | Fine control | Reference screenshots |
 | Remember the plate position across app restarts | Currently kept in memory only | Spec open item |
@@ -109,7 +108,7 @@ Ready, Listening, Not started (consent dismissed). Start is disabled with a one-
 - Original plate appears only with "Show original text". The translation plate is always the main one.
 - A caption stays up for its reading time: 4 s minimum, longer for long text, 9 s at most.
 - Live text may be replaced by better text as more speech arrives; the final text replaces the live text in place.
-- Dragging either plate moves both. Touches outside the plates reach the video.
+- Each box is dragged up or down on its own. The original box follows the translation box until you move it. Touches outside the boxes reach the video.
 - Messages (blocked app, missing language pack) use the translation plate.
 
 ### 5.3 Settings (top to bottom)
@@ -145,7 +144,7 @@ Three steps: what it does (with the DRM limit), permissions (overlay, notificati
 |---|---|---|---|
 | Visibility of system status | The model that will run was not shown | P2 | Status chip shows it |
 | Match with the real world | "plate" is an internal word | P2 | Copy says "box" |
-| User control | Plates cannot be placed separately | P3 | Proposed (section 2) |
+| User control | Plates could not be placed separately | P3 | Fixed: each box moves on its own; Reset caption positions in Settings |
 | Error prevention | Unreadable colour pairs are possible | P2 | Contrast warning |
 | Recognition over recall | Auto hides which model runs | P2 | Helper line + status chip |
 | Honesty | Live text can change | P2 | First-time hint |
@@ -171,7 +170,7 @@ in `strings.xml`, the theme and the manifest all use it).
 | Hex field error | Use six digits or letters A to F | Enter 6 characters: 0 to 9 and A to F | Clear and short |
 | Download hint | (none) | Use Wi-Fi to avoid mobile data charges. | Sets expectations before a 240 MB download |
 | Live text hint (first run of captions) | (none) | Captions appear as people speak and may change as more words arrive. | Prevents confusion |
-| Move hint | (none) | Drag a caption box to move both boxes. | Teaches the gesture |
+| Move hint | (none) | While captions are on, drag each caption box up or down to place it. | Teaches the gesture (in Settings) |
 | Cancel download | Cancel download | Cancel download (keeps what's already downloaded) | Describes the consequence |
 
 ### Alternatives for the three most important lines
@@ -201,6 +200,6 @@ Buttons use verbs.
 - Right-to-left languages: boxes stay centred; the original box may contain mixed-direction text.
 
 ## 10. Open questions
-1. Build the proposals in section 2 (separate plate moving, searchable language list, text size stepper)?
-2. A logo and app icon for TransCap (the app still uses a placeholder icon).
+1. Build the remaining proposals in section 2 (searchable language list, text size stepper)?
+2. Logo and app icon are done (`docs/design/logo/`); a Play Store feature graphic and screenshots are not.
 3. The domain `rt.transcap.app` and the store product id in the backend design are placeholders; availability of the name, domain and store listing has not been checked.
