@@ -1,6 +1,7 @@
 package com.voicecaption.app
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
@@ -22,6 +23,8 @@ import com.voicecaption.ui.state.ReadinessSource
 import com.voicecaption.ui.state.SettingsStore
 import com.voicecaption.ui.state.asInstaller
 import java.io.File
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,7 +43,9 @@ class AppContainer(context: Context) {
     private val appContext: Context = context.applicationContext
 
     /** Application-lifetime scope for settings sharing and downloads. */
-    val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    val appScope: CoroutineScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Default + CoroutineExceptionHandler { _, e -> Log.e(TAG, "Background task failed", e) },
+    )
 
     private val dataStore: DataStore<Preferences> by lazy {
         PreferenceDataStoreFactory.create(
@@ -55,8 +60,10 @@ class AppContainer(context: Context) {
 
     /**
      * Latest settings as an in-memory snapshot (also the service's synchronous hook). It starts as
-     * defaults until the DataStore's first read lands. If the repository flow ever completes after
-     * a transient IOException, this keeps the last value it saw.
+     * defaults until the DataStore's first read lands. Known limitation: after a transient
+     * DataStore IOException the repository flow emits defaults and then COMPLETES, so this falls
+     * back to defaults and later edits are persisted but not reflected here until the process
+     * restarts.
      */
     val settingsState: StateFlow<CaptionSettings> by lazy {
         settingsRepository.settings.stateIn(appScope, SharingStarted.Eagerly, CaptionSettings())
@@ -86,13 +93,22 @@ class AppContainer(context: Context) {
 
     private val readinessSource = object : ReadinessSource {
         override suspend fun isModelInstalled(size: ModelSize) =
-            withContext(Dispatchers.IO) { modelManager.isInstalled(size) }
+            guarded("isInstalled") { withContext(Dispatchers.IO) { modelManager.isInstalled(size) } }
+
+        private suspend fun guarded(what: String, block: suspend () -> Boolean): Boolean = try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Readiness $what failed", e)
+            false
+        }
 
         override suspend fun isTranslationReady(source: String, target: String) =
-            source == target || translator.isReady(source, target)
+            source == target || guarded("isReady") { translator.isReady(source, target) }
 
         override suspend fun deleteModel(size: ModelSize) =
-            withContext(Dispatchers.IO) { modelManager.delete(size) }
+            guarded("delete") { withContext(Dispatchers.IO) { modelManager.delete(size) } }
     }
 
     /** Factory for [MainViewModel]: `viewModels { container.mainViewModelFactory() }`. */
@@ -105,8 +121,16 @@ class AppContainer(context: Context) {
                 readiness = readinessSource,
                 downloads = downloadController,
                 captureRunning = CaptureStatus.running,
-                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+                scope = CoroutineScope(
+                    SupervisorJob() + Dispatchers.Default +
+                        CoroutineExceptionHandler { _, e -> Log.e(TAG, "View model task failed", e) },
+                ),
+                onError = { Log.w(TAG, "View model operation failed", it) },
             ) as T
         }
+    }
+
+    private companion object {
+        const val TAG = "AppContainer"
     }
 }

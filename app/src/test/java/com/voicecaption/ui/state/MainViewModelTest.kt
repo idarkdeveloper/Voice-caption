@@ -197,3 +197,84 @@ class ReduceUiStateTest {
         assertEquals(SetupStep.READY, s.nextStep)
     }
 }
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class MainViewModelFailureTest {
+    private val installer = FakeInstaller(mutableSetOf(ModelSize.BASE))
+    private val translator = FakeTranslator()
+    private val granted = PermissionState(overlay = true, notifications = true, recordAudio = true)
+    private val errors = mutableListOf<Throwable>()
+
+    private class FlakyReadiness(private val inner: ReadinessSource) : ReadinessSource {
+        var failReady = true
+        override suspend fun isModelInstalled(size: ModelSize) = inner.isModelInstalled(size)
+        override suspend fun isTranslationReady(source: String, target: String): Boolean {
+            if (failReady) throw IllegalStateException("ml kit task failed")
+            return inner.isTranslationReady(source, target)
+        }
+        override suspend fun deleteModel(size: ModelSize) = inner.deleteModel(size)
+    }
+
+    private class FlakyStore : SettingsStore {
+        val state = MutableStateFlow(CaptionSettings())
+        var fail = true
+        override val settings: StateFlow<CaptionSettings> = state
+        override suspend fun update(transform: (CaptionSettings) -> CaptionSettings) {
+            if (fail) throw IOException("disk full")
+            state.value = transform(state.value)
+        }
+    }
+
+    private fun TestScope.vm(readiness: ReadinessSource, store: SettingsStore): MainViewModel =
+        MainViewModel(
+            store, readiness, DownloadController(installer, translator, backgroundScope),
+            MutableStateFlow(false), backgroundScope, onError = { errors += it },
+        ).also { it.refreshPermissions(granted) }
+
+    @Test
+    fun readinessFailureKeepsUiStateAlive() = runTest {
+        val readiness = FlakyReadiness(FakeReadiness(installer, translator))
+        val vm = vm(readiness, FakeSettingsStore())
+        runCurrent()
+        assertFalse(vm.uiState.value.canStart) // unknown translation state counts as not ready
+        assertTrue(errors.isNotEmpty())
+
+        readiness.failReady = false
+        vm.refreshPermissions(granted)
+        runCurrent()
+        assertTrue(vm.uiState.value.canStart)
+    }
+
+    @Test
+    fun settingsWriteFailureDoesNotEscapeAndVmKeepsWorking() = runTest {
+        val store = FlakyStore()
+        val vm = vm(FakeReadiness(installer, translator), store)
+        vm.onFontSize(30)
+        runCurrent()
+        assertEquals(18, vm.uiState.value.settings.fontSizeSp)
+        assertTrue(errors.any { it is IOException })
+
+        store.fail = false
+        vm.onFontSize(30)
+        runCurrent()
+        assertEquals(30, vm.uiState.value.settings.fontSizeSp)
+    }
+
+    @Test
+    fun safelyMapsFailureToDefaultAndReports() = runTest {
+        val seen = mutableListOf<Throwable>()
+        assertFalse(safely(false, { seen += it }) { throw IOException("x") })
+        assertEquals(1, seen.size)
+    }
+
+    @Test
+    fun safelyDoesNotSwallowCancellation() = runTest {
+        val seen = mutableListOf<Throwable>()
+        try {
+            safely(false, { seen += it }) { throw kotlinx.coroutines.CancellationException("c") }
+            org.junit.Assert.fail("expected cancellation")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            assertTrue(seen.isEmpty())
+        }
+    }
+}

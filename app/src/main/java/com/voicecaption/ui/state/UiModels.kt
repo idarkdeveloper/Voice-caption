@@ -20,7 +20,7 @@ interface SettingsStore {
     suspend fun update(transform: (CaptionSettings) -> CaptionSettings)
 }
 
-/** On-device readiness queries and model deletion for the view model. */
+/** On-device readiness queries and model deletion for the view model. Implementations should not throw; the view model also guards every call. */
 interface ReadinessSource {
     /** True when the Whisper model for [size] is installed. */
     suspend fun isModelInstalled(size: ModelSize): Boolean

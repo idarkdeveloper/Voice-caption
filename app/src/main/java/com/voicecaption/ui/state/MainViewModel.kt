@@ -22,6 +22,10 @@ import kotlinx.coroutines.launch
  * State holder for the Compose screens. Pure Kotlin apart from [ViewModel]; every dependency is
  * injected so it runs in JVM tests.
  *
+ * Failures from [store] writes and [readiness] queries are reported to [onError] and never
+ * thrown: a failed read counts as "not installed / not ready", a failed write is dropped (the UI
+ * keeps showing the persisted value). Cancellation is never swallowed.
+ *
  * [scope] is owned by this view model and cancelled in [onCleared]. [downloads] should live
  * longer (an app-scoped controller), so downloads survive the screen.
  *
@@ -36,6 +40,7 @@ class MainViewModel(
     private val downloads: DownloadController,
     private val captureRunning: StateFlow<Boolean>,
     private val scope: CoroutineScope,
+    private val onError: (Throwable) -> Unit = {},
 ) : ViewModel() {
     private val permissions = MutableStateFlow(PermissionState())
     private val refreshTick = MutableStateFlow(0)
@@ -46,8 +51,9 @@ class MainViewModel(
                 modelSize = s.modelSize,
                 sourceLang = s.sourceLang,
                 targetLang = s.targetLang,
-                installedModels = ModelSize.entries.filter { readiness.isModelInstalled(it) }.toSet(),
-                translationReady = readiness.isTranslationReady(s.sourceLang, s.targetLang),
+                installedModels = ModelSize.entries
+                    .filter { safely(false, onError) { readiness.isModelInstalled(it) } }.toSet(),
+                translationReady = safely(false, onError) { readiness.isTranslationReady(s.sourceLang, s.targetLang) },
             )
         }
 
@@ -116,13 +122,13 @@ class MainViewModel(
     fun deleteModel(size: ModelSize) {
         if (captureRunning.value) return
         scope.launch {
-            readiness.deleteModel(size)
+            safely(false, onError) { readiness.deleteModel(size) }
             refreshTick.value++
         }
     }
 
     private fun update(transform: (CaptionSettings) -> CaptionSettings) {
-        scope.launch { store.update(transform) }
+        scope.launch { safely(Unit, onError) { store.update(transform) } }
     }
 
     override fun onCleared() {
