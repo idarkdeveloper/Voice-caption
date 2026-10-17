@@ -54,6 +54,7 @@ dependencies {
     // enforced by gradle/verification-metadata.xml.
     implementation("com.k2fsa.sherpa:sherpa-onnx:${libs.versions.sherpaOnnx.get()}@aar")
 
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.mlkit.translate)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android) // Dispatchers.Main for the overlay thread
