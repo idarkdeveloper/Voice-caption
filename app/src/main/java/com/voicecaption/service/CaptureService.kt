@@ -235,7 +235,7 @@ class CaptureService : Service() {
                 segmenter = VadSegmenter(vadInstance, VadConfig(partialEveryMs = if (modelSize == ModelSize.SENSEVOICE) PARTIAL_FAST_MS else PARTIAL_EVERY_MS)),
                 recognizer = whisperInstance,
                 translator = translatorInstance,
-                stabilizer = CaptionStabilizer(maxLines = 1) // a new sentence replaces the old one,
+                stabilizer = CaptionStabilizer(maxLines = 1), // a new sentence replaces the old one
                 settings = { ServiceDependencies.settings() },
                 scope = scope,
                 clock = SystemClock::elapsedRealtime,
