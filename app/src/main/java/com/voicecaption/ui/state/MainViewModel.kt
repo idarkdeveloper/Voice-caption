@@ -106,6 +106,12 @@ class MainViewModel(
     /** Selects the Whisper model size; readiness is recomputed and may now need a download. */
     fun onModelSize(size: ModelSize) = update { it.copy(modelSize = size, autoModel = false) }
 
+    /** Sets the caption text colour (opaque RGB). */
+    fun onTextColor(color: Int) = update { it.copy(textColor = color) }
+
+    /** Sets the caption plate colour (opaque RGB). */
+    fun onPlateColor(color: Int) = update { it.copy(plateColor = color) }
+
     /** Lets the app pick the speech model from the spoken language. */
     fun onAutoModel() = update { it.copy(autoModel = true) }
 

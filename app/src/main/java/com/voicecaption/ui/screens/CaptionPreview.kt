@@ -48,13 +48,21 @@ private const val SOURCE_LINE_SCALE = 0.8f
 
 /**
  * Live preview of the overlay: the translation plate and, with "show original text", a smaller
- * original-language plate above it. Black at the chosen opacity (floored like the real overlay),
- * white text, 8 dp radius, size as set.
+ * original-language plate above it. Plate colour at the chosen opacity (floored like the real
+ * overlay), text colour, 8 dp radius, size as set.
  */
 @Composable
-fun CaptionPreview(fontSizeSp: Int, opacity: Float, bilingual: Boolean, modifier: Modifier = Modifier) {
+fun CaptionPreview(
+    fontSizeSp: Int,
+    opacity: Float,
+    bilingual: Boolean,
+    textColor: Int,
+    plateColor: Int,
+    modifier: Modifier = Modifier,
+) {
     val plates = remember(bilingual) { CaptionFormatter.plates(listOf(SampleCaption), bilingual) }
-    val plateColor = Color.Black.copy(alpha = OverlayMath.plateAlpha(opacity) / 255f)
+    val plateBackground = Color(plateColor).copy(alpha = OverlayMath.plateAlpha(opacity) / 255f)
+    val text = Color(textColor)
     val description = stringResource(
         R.string.settings_preview_description,
         (plates.source + plates.translation).joinToString(". "),
@@ -76,17 +84,17 @@ fun CaptionPreview(fontSizeSp: Int, opacity: Float, bilingual: Boolean, modifier
             verticalArrangement = Arrangement.spacedBy(Spacing.Small / 2),
         ) {
             if (plates.source.isNotEmpty()) {
-                PreviewPlate(plates.source, fontSizeSp * SOURCE_LINE_SCALE, plateColor, available, dimmed = true)
+                PreviewPlate(plates.source, fontSizeSp * SOURCE_LINE_SCALE, plateBackground, text, available, dimmed = true)
             }
             if (plates.translation.isNotEmpty()) {
-                PreviewPlate(plates.translation, fontSizeSp.toFloat(), plateColor, available, dimmed = false)
+                PreviewPlate(plates.translation, fontSizeSp.toFloat(), plateBackground, text, available, dimmed = false)
             }
         }
     }
 }
 
 @Composable
-private fun PreviewPlate(lines: List<String>, sizeSp: Float, color: Color, available: Dp, dimmed: Boolean) {
+private fun PreviewPlate(lines: List<String>, sizeSp: Float, color: Color, textColor: Color, available: Dp, dimmed: Boolean) {
     Column(
         modifier = Modifier
             .widthIn(max = available * OverlayMath.MAX_WIDTH_FRACTION)
@@ -97,7 +105,7 @@ private fun PreviewPlate(lines: List<String>, sizeSp: Float, color: Color, avail
         lines.forEach { line ->
             Text(
                 line,
-                color = if (dimmed) Color.White.copy(alpha = 0.85f) else Color.White,
+                color = if (dimmed) textColor.copy(alpha = 0.85f) else textColor,
                 fontSize = sizeSp.sp,
                 textAlign = TextAlign.Center,
             )

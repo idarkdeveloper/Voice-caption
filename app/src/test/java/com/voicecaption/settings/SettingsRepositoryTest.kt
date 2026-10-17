@@ -90,4 +90,18 @@ class SettingsRepositoryTest {
         }
         assertEquals(CaptionSettings(), SettingsRepository(failing).current())
     }
+
+    @Test
+    fun coloursArePersistedAndAlwaysOpaque() = runTest {
+        val file = tmp.newFile("colours.preferences_pb")
+        val scope = CoroutineScope(Job())
+        val repo = SettingsRepository(store(scope, file))
+        repo.update { it.copy(textColor = 0xFFFFE45C.toInt(), plateColor = 0x000B1A33) } // alpha dropped on save
+        scope.cancel()
+        scope.coroutineContext[Job]!!.join()
+
+        val got = SettingsRepository(store(backgroundScope, file)).current()
+        assertEquals(0xFFFFE45C.toInt(), got.textColor)
+        assertEquals(0xFF0B1A33.toInt(), got.plateColor)
+    }
 }

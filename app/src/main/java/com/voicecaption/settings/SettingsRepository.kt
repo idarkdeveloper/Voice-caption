@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.voicecaption.core.CaptionSettings
+import com.voicecaption.core.ColorMath
 import com.voicecaption.core.ModelSize
 import com.voicecaption.overlay.OverlayMath
 import java.io.IOException
@@ -26,6 +27,8 @@ internal object SettingsKeys {
     val bilingual = booleanPreferencesKey("bilingual")
     val modelSize = stringPreferencesKey("model_size")
     val autoModel = booleanPreferencesKey("auto_model")
+    val textColor = intPreferencesKey("text_color")
+    val plateColor = intPreferencesKey("plate_color")
 }
 
 internal val FONT_SIZE_RANGE_SP = 14..32
@@ -41,6 +44,8 @@ internal fun validate(raw: CaptionSettings): CaptionSettings {
         targetLang = SupportedLanguages.coerce(raw.targetLang, "en"),
         fontSizeSp = raw.fontSizeSp.coerceIn(FONT_SIZE_RANGE_SP),
         opacity = if (raw.opacity.isNaN()) defaults.opacity else raw.opacity.coerceIn(OverlayMath.MIN_OPACITY, 1f),
+        textColor = ColorMath.opaque(raw.textColor),
+        plateColor = ColorMath.opaque(raw.plateColor),
     )
 }
 
@@ -57,6 +62,8 @@ private fun Preferences.toSettings(): CaptionSettings {
                 ?.let { name -> ModelSize.entries.firstOrNull { it.name == name } }
                 ?: d.modelSize,
             autoModel = this[SettingsKeys.autoModel] ?: d.autoModel,
+            textColor = this[SettingsKeys.textColor] ?: d.textColor,
+            plateColor = this[SettingsKeys.plateColor] ?: d.plateColor,
         ),
     )
 }
@@ -82,6 +89,8 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             prefs[SettingsKeys.bilingual] = next.bilingual
             prefs[SettingsKeys.modelSize] = next.modelSize.name
             prefs[SettingsKeys.autoModel] = next.autoModel
+            prefs[SettingsKeys.textColor] = next.textColor
+            prefs[SettingsKeys.plateColor] = next.plateColor
         }
     }
 }

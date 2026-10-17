@@ -99,7 +99,7 @@ class OverlayRenderer(context: Context) {
         if (lines.source.isEmpty()) {
             original.visibility = View.GONE
         } else {
-            applyStyle(original, settings.fontSizeSp * SOURCE_LINE_SCALE, plateAlpha, dimmed = true)
+            applyStyle(original, settings.fontSizeSp * SOURCE_LINE_SCALE, plateAlpha, settings, dimmed = true)
             original.maxLines = MAX_LINES
             original.text = lines.source.joinToString("\n")
             original.visibility = View.VISIBLE
@@ -107,14 +107,14 @@ class OverlayRenderer(context: Context) {
 
         when {
             lines.translation.isNotEmpty() -> {
-                applyStyle(translation, settings.fontSizeSp.toFloat(), plateAlpha)
+                applyStyle(translation, settings.fontSizeSp.toFloat(), plateAlpha, settings)
                 translation.maxLines = MAX_LINES + (if (debug != null) DEBUG_EXTRA_LINES else 0)
                 val body = lines.translation.joinToString("\n")
                 translation.text = if (debug == null) body else body + "\n" + debug
                 translation.visibility = View.VISIBLE
             }
             debug != null -> {
-                applyStyle(translation, DEBUG_SP.toFloat(), plateAlpha)
+                applyStyle(translation, DEBUG_SP.toFloat(), plateAlpha, settings)
                 translation.maxLines = MAX_LINES
                 translation.text = debug
                 translation.visibility = View.VISIBLE
@@ -134,7 +134,7 @@ class OverlayRenderer(context: Context) {
         view.maxLines = MAX_LINES
         view.text = text
         view.visibility = View.VISIBLE
-        applyStyle(view, null, alpha)
+        applyStyle(view, null, alpha, lastSettings)
         window.visibility = View.VISIBLE
     }
 
@@ -189,7 +189,7 @@ class OverlayRenderer(context: Context) {
         view.setPadding(dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP))
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         view.setOnTouchListener(DragListener(appContext, window) { requested -> moveTo(window, requested) })
-        applyStyle(view, CaptionSettings().fontSizeSp.toFloat(), alpha)
+        applyStyle(view, CaptionSettings().fontSizeSp.toFloat(), alpha, CaptionSettings())
         return view
     }
 
@@ -215,12 +215,13 @@ class OverlayRenderer(context: Context) {
     }
 
     /** [fontSizeSp] null keeps the current size. [dimmed] draws the text slightly softer (original-language plate). */
-    private fun applyStyle(view: TextView, fontSizeSp: Float?, newAlpha: Int, dimmed: Boolean = false) {
+    private fun applyStyle(view: TextView, fontSizeSp: Float?, newAlpha: Int, settings: CaptionSettings, dimmed: Boolean = false) {
         alpha = newAlpha
         if (fontSizeSp != null) view.setTextSize(TypedValue.COMPLEX_UNIT_SP, fontSizeSp)
-        view.setTextColor(if (dimmed) Color.argb(DIMMED_TEXT_ALPHA, 255, 255, 255) else Color.WHITE)
+        val text = settings.textColor
+        view.setTextColor(if (dimmed) (text and 0x00FFFFFF) or (DIMMED_TEXT_ALPHA shl 24) else text)
         view.background = GradientDrawable().apply {
-            setColor(Color.BLACK)
+            setColor(settings.plateColor)
             this.alpha = newAlpha
             cornerRadius = dp(CORNER_DP).toFloat()
         }

@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import com.voicecaption.R
+import com.voicecaption.core.ColorMath
 import com.voicecaption.core.ModelSize
 import com.voicecaption.ui.state.MainUiState
 import com.voicecaption.ui.theme.Spacing
@@ -56,6 +57,8 @@ class SettingsActions(
     val onFontSize: (Int) -> Unit,
     val onOpacity: (Float) -> Unit,
     val onBilingual: (Boolean) -> Unit,
+    val onTextColor: (Int) -> Unit,
+    val onPlateColor: (Int) -> Unit,
     val onModelSize: (ModelSize) -> Unit,
     val onAutoModel: () -> Unit,
     val onSourceLanguage: (String) -> Unit,
@@ -111,6 +114,8 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                     fontSizeSp = fontDraft,
                     opacity = opacityPercent / 100f,
                     bilingual = settings.bilingual,
+                    textColor = settings.textColor,
+                    plateColor = settings.plateColor,
                 )
             }
 
@@ -148,6 +153,33 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
             ) {
                 Text(switchLabel, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.bilingual, onCheckedChange = null)
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
+                Text(
+                    stringResource(R.string.settings_colors),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { heading() },
+                )
+                ColorChoice(
+                    title = stringResource(R.string.settings_text_color),
+                    options = TextColorOptions,
+                    selected = settings.textColor,
+                    onSelect = actions.onTextColor,
+                )
+                ColorChoice(
+                    title = stringResource(R.string.settings_plate_color),
+                    options = PlateColorOptions,
+                    selected = settings.plateColor,
+                    onSelect = actions.onPlateColor,
+                )
+                if (ColorMath.contrastRatio(settings.textColor, settings.plateColor) < ColorMath.MIN_READABLE_CONTRAST) {
+                    Text(
+                        stringResource(R.string.settings_contrast_warning),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
 
             ModelChoice(settings.autoModel, settings.modelSize, actions.onModelSize, actions.onAutoModel)

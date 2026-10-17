@@ -40,6 +40,10 @@ data class CaptionSettings(
      * use [modelSize].
      */
     val autoModel: Boolean = true,
+    /** Caption text colour (opaque RGB). */
+    val textColor: Int = ColorMath.WHITE,
+    /** Caption plate colour (opaque RGB); its transparency is [opacity]. */
+    val plateColor: Int = ColorMath.BLACK,
 ) {
     /** The model that will really run (and be downloaded) for these settings. */
     val activeModel: ModelSize get() = ModelChoice.resolve(autoModel, modelSize, sourceLang)

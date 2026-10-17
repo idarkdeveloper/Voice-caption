@@ -157,6 +157,8 @@ fun AppRoot(vm: MainViewModel) {
                 onFontSize = vm::onFontSize,
                 onOpacity = vm::onOpacity,
                 onBilingual = vm::onBilingual,
+                onTextColor = vm::onTextColor,
+                onPlateColor = vm::onPlateColor,
                 onModelSize = vm::onModelSize,
                 onAutoModel = vm::onAutoModel,
                 onSourceLanguage = vm::onSourceLanguage,
