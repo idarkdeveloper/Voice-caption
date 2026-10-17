@@ -28,6 +28,32 @@ class WhisperSupportTest {
         assertEquals("", normalizeWhisperLanguage("AUTO"))
     }
 
+    @Test fun legacyAndroidCodesAreMapped() {
+        assertEquals("he", normalizeWhisperLanguage("iw"))
+        assertEquals("id", normalizeWhisperLanguage("in"))
+        assertEquals("yi", normalizeWhisperLanguage("ji"))
+        assertEquals("jw", normalizeWhisperLanguage("jv"))
+        assertEquals("he", normalizeWhisperLanguage("IW-IL"))
+    }
+
+    @Test fun supportedCodesPassThrough() {
+        assertEquals("en", normalizeWhisperLanguage("en-US"))
+        assertEquals("haw", normalizeWhisperLanguage("haw"))
+        assertEquals("tl", normalizeWhisperLanguage("tl"))
+        assertEquals("ja", normalizeWhisperLanguage("JA"))
+    }
+
+    @Test fun unsupportedCodesFallBackToAutoDetect() {
+        assertEquals("", normalizeWhisperLanguage("fil"))
+        assertEquals("", normalizeWhisperLanguage("xx"))
+        assertEquals("", normalizeWhisperLanguage("english"))
+        assertEquals("", normalizeWhisperLanguage("-US"))
+    }
+
+    @Test fun supportedSetHasNinetyNineLanguages() {
+        assertEquals(99, WHISPER_LANGUAGES.size)
+    }
+
     @Test fun threadCountScalesWithCoresWithinTwoToFour() {
         assertEquals(2, whisperThreads(1))
         assertEquals(2, whisperThreads(4))

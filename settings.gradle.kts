@@ -12,7 +12,9 @@ dependencyResolutionManagement {
         mavenCentral()
         // sherpa-onnx is not on Maven Central or JitPack (JitPack builds publish no modules); the
         // official Android distribution is the AAR attached to each GitHub release. Resolve it as
-        // an Ivy artifact, restricted to that one module so no other lookup goes to GitHub.
+        // an Ivy artifact (resolution therefore needs github.com release downloads; the checksum in
+        // gradle/verification-metadata.xml pins integrity, not availability),
+        // restricted to that one module so no other lookup goes to GitHub.
         exclusiveContent {
             forRepository {
                 ivy {

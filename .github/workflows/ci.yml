@@ -3,15 +3,21 @@ name: CI
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
+      # Caches ~/.gradle, including the 50 MB sherpa-onnx AAR, which resolution downloads from
+      # github.com releases (checksum-pinned; the pin guards integrity, not availability).
       - uses: gradle/actions/setup-gradle@v4
       - name: Test, lint, assemble
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug
