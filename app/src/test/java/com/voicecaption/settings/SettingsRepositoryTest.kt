@@ -44,8 +44,8 @@ class SettingsRepositoryTest {
         val file = tmp.newFile("b.preferences_pb")
         val scope = CoroutineScope(Job())
         val repo = SettingsRepository(store(scope, file))
-        repo.update { it.copy(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f) }
-        val expected = CaptionSettings(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f)
+        repo.update { it.copy(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f, autoModel = false) }
+        val expected = CaptionSettings(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f, autoModel = false)
         assertEquals(expected, repo.settings.first())
 
         scope.cancel()

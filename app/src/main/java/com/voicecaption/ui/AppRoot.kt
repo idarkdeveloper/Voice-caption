@@ -133,7 +133,7 @@ fun AppRoot(vm: MainViewModel) {
         Screen.HOME -> HomeScreen(
             state = state,
             notStarted = notStarted,
-            speechModelMegabytes = megabytes.getValue(state.settings.modelSize),
+            speechModelMegabytes = megabytes.getValue(state.settings.activeModel),
             actions = HomeActions(
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onSourceLanguage = vm::onSourceLanguage,
@@ -158,6 +158,7 @@ fun AppRoot(vm: MainViewModel) {
                 onOpacity = vm::onOpacity,
                 onBilingual = vm::onBilingual,
                 onModelSize = vm::onModelSize,
+                onAutoModel = vm::onAutoModel,
                 onSourceLanguage = vm::onSourceLanguage,
                 onTargetLanguage = vm::onTargetLanguage,
                 onSwapLanguages = swapLanguages,

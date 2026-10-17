@@ -57,6 +57,7 @@ class SettingsActions(
     val onOpacity: (Float) -> Unit,
     val onBilingual: (Boolean) -> Unit,
     val onModelSize: (ModelSize) -> Unit,
+    val onAutoModel: () -> Unit,
     val onSourceLanguage: (String) -> Unit,
     val onTargetLanguage: (String) -> Unit,
     val onSwapLanguages: () -> Unit,
@@ -149,7 +150,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                 Switch(checked = settings.bilingual, onCheckedChange = null)
             }
 
-            ModelChoice(settings.modelSize, actions.onModelSize)
+            ModelChoice(settings.autoModel, settings.modelSize, actions.onModelSize, actions.onAutoModel)
 
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
                 Text(
@@ -181,12 +182,15 @@ private fun percentOf(opacity: Float): Int =
         .coerceIn(MIN_OPACITY_PERCENT, MAX_OPACITY_PERCENT)
 
 @Composable
-private fun ModelChoice(selected: ModelSize, onSelect: (ModelSize) -> Unit) {
-    val options = listOf(
+private fun ModelChoice(auto: Boolean, selected: ModelSize, onSelect: (ModelSize) -> Unit, onAuto: () -> Unit) {
+    // null = "Auto"; otherwise an explicit model.
+    val options: List<Pair<ModelSize?, Int>> = listOf(
+        null to R.string.settings_model_auto,
         ModelSize.BASE to R.string.settings_model_fast,
         ModelSize.SMALL to R.string.settings_model_accurate,
         ModelSize.SENSEVOICE to R.string.settings_model_experimental,
     )
+    val current: ModelSize? = if (auto) null else selected
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
         Text(
             stringResource(R.string.settings_model),
@@ -196,12 +200,19 @@ private fun ModelChoice(selected: ModelSize, onSelect: (ModelSize) -> Unit) {
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (size, label) ->
                 SegmentedButton(
-                    selected = size == selected,
-                    onClick = { onSelect(size) },
+                    selected = size == current,
+                    onClick = { if (size == null) onAuto() else onSelect(size) },
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
                     modifier = Modifier.heightIn(min = Spacing.Target),
-                ) { Text(stringResource(label)) }
+                ) { Text(stringResource(label), maxLines = 1) }
             }
+        }
+        if (auto) {
+            Text(
+                stringResource(R.string.settings_model_auto_helper),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Text(
             stringResource(R.string.settings_model_helper),

@@ -34,4 +34,28 @@ data class CaptionSettings(
     val opacity: Float = 0.8f,
     val bilingual: Boolean = false,
     val modelSize: ModelSize = ModelSize.BASE,
-)
+    /**
+     * Pick the speech model from the spoken language ([activeModel]): SenseVoice for Japanese,
+     * Chinese, Korean and Cantonese, otherwise the Whisper size in [modelSize]. Off = always
+     * use [modelSize].
+     */
+    val autoModel: Boolean = true,
+) {
+    /** The model that will really run (and be downloaded) for these settings. */
+    val activeModel: ModelSize get() = ModelChoice.resolve(autoModel, modelSize, sourceLang)
+}
+
+/** Which speech model to use for a language. Pure. */
+object ModelChoice {
+    private val SENSEVOICE_FIRST = setOf("ja", "zh", "ko", "yue")
+
+    fun resolve(auto: Boolean, preferred: ModelSize, sourceLang: String): ModelSize {
+        if (!auto) return preferred
+        val primary = sourceLang.trim().lowercase().split('-', '_').first()
+        return when {
+            primary in SENSEVOICE_FIRST -> ModelSize.SENSEVOICE
+            preferred == ModelSize.SENSEVOICE -> ModelSize.BASE // Whisper covers every other language
+            else -> preferred
+        }
+    }
+}

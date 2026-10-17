@@ -162,7 +162,7 @@ class CaptureService : Service() {
         try {
             val settings = ServiceDependencies.settings()
             val renderer = OverlayRenderer(this).also { overlay = it }
-            val modelSize = pickInstalledModel(settings.modelSize)
+            val modelSize = pickInstalledModel(settings.activeModel)
             val check = StartupCheck.evaluate(
                 overlayAllowed = renderer.canDrawOverlays(),
                 recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
@@ -213,7 +213,7 @@ class CaptureService : Service() {
             whisper = whisperInstance
             val translatorInstance = MlKitTranslator(this).also { translator = it }
             val pipe = CaptionPipeline(
-                segmenter = VadSegmenter(vadInstance, VadConfig(partialEveryMs = PARTIAL_EVERY_MS)),
+                segmenter = VadSegmenter(vadInstance, VadConfig(partialEveryMs = if (modelSize == ModelSize.SENSEVOICE) PARTIAL_FAST_MS else PARTIAL_EVERY_MS)),
                 recognizer = whisperInstance,
                 translator = translatorInstance,
                 stabilizer = CaptionStabilizer(),
@@ -442,8 +442,11 @@ class CaptureService : Service() {
     private fun Intent.getParcelableExtraCompat(): Intent? = getParcelableExtra(EXTRA_DATA)
 
     companion object {
-        /** While someone is speaking, show a provisional caption refreshed this often. */
+        /** While someone is speaking, show a provisional caption refreshed this often (Whisper). */
         private const val PARTIAL_EVERY_MS = 1500
+
+        /** SenseVoice decodes in about 100 ms, so it can refresh the provisional caption faster. */
+        private const val PARTIAL_FAST_MS = 800
 
         /** Closes the native resources in order, each independently, on a non-daemon background thread. */
         private fun closeNativeOffMain(whisper: SpeechRecognizer?, vad: SileroVad?, translator: MlKitTranslator?) {

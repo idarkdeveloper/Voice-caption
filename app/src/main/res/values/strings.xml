@@ -89,7 +89,9 @@
     <string name="settings_model">Speech model</string>
     <string name="settings_model_fast">Fast (base)</string>
     <string name="settings_model_accurate">Accurate (small)</string>
-    <string name="settings_model_experimental">SenseVoice (test)</string>
+    <string name="settings_model_auto">Auto</string>
+    <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, and Whisper for other languages.</string>
+    <string name="settings_model_experimental">SenseVoice</string>
     <string name="settings_model_helper">Accurate uses more battery and may lag on older phones</string>
     <string name="settings_languages">Languages</string>
     <string name="settings_storage">Storage</string>

@@ -48,7 +48,7 @@ class MainViewModel(
     private val snapshots = combine(store.settings, refreshTick) { s, _ -> s }
         .mapLatest { s ->
             ReadinessSnapshot(
-                modelSize = s.modelSize,
+                modelSize = s.activeModel,
                 sourceLang = s.sourceLang,
                 targetLang = s.targetLang,
                 installedModels = ModelSize.entries
@@ -71,7 +71,7 @@ class MainViewModel(
     init {
         // A download or failure belongs to one request; changing the pair or size drops it.
         scope.launch {
-            store.settings.map { Triple(it.modelSize, it.sourceLang, it.targetLang) }
+            store.settings.map { Triple(it.activeModel, it.sourceLang, it.targetLang) }
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { downloads.cancel() }
@@ -104,12 +104,15 @@ class MainViewModel(
     fun onBilingual(enabled: Boolean) = update { it.copy(bilingual = enabled) }
 
     /** Selects the Whisper model size; readiness is recomputed and may now need a download. */
-    fun onModelSize(size: ModelSize) = update { it.copy(modelSize = size) }
+    fun onModelSize(size: ModelSize) = update { it.copy(modelSize = size, autoModel = false) }
+
+    /** Lets the app pick the speech model from the spoken language. */
+    fun onAutoModel() = update { it.copy(autoModel = true) }
 
     /** Downloads the speech model and language pack the current settings still need. */
     fun startDownloads() {
         val s = store.settings.value
-        downloads.start(s.modelSize, s.sourceLang, s.targetLang)
+        downloads.start(s.activeModel, s.sourceLang, s.targetLang)
     }
 
     /** Retries the last failed download. */

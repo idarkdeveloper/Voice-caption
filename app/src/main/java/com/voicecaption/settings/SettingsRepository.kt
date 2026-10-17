@@ -25,6 +25,7 @@ internal object SettingsKeys {
     val opacity = floatPreferencesKey("opacity")
     val bilingual = booleanPreferencesKey("bilingual")
     val modelSize = stringPreferencesKey("model_size")
+    val autoModel = booleanPreferencesKey("auto_model")
 }
 
 internal val FONT_SIZE_RANGE_SP = 14..32
@@ -55,6 +56,7 @@ private fun Preferences.toSettings(): CaptionSettings {
             modelSize = this[SettingsKeys.modelSize]
                 ?.let { name -> ModelSize.entries.firstOrNull { it.name == name } }
                 ?: d.modelSize,
+            autoModel = this[SettingsKeys.autoModel] ?: d.autoModel,
         ),
     )
 }
@@ -79,6 +81,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             prefs[SettingsKeys.opacity] = next.opacity
             prefs[SettingsKeys.bilingual] = next.bilingual
             prefs[SettingsKeys.modelSize] = next.modelSize.name
+            prefs[SettingsKeys.autoModel] = next.autoModel
         }
     }
 }

@@ -73,13 +73,13 @@ fun reduceUiState(
     running: Boolean,
 ): MainUiState {
     val fresh = readiness?.takeIf {
-        it.modelSize == settings.modelSize && it.sourceLang == settings.sourceLang && it.targetLang == settings.targetLang
+        it.modelSize == settings.activeModel && it.sourceLang == settings.sourceLang && it.targetLang == settings.targetLang
     }
     val inputs = ReadinessInputs(
         overlayGranted = permissions.overlay,
         notificationsGranted = permissions.notifications,
         recordAudioGranted = permissions.recordAudio,
-        modelInstalled = fresh != null && settings.modelSize in fresh.installedModels,
+        modelInstalled = fresh != null && settings.activeModel in fresh.installedModels,
         translationReady = fresh?.translationReady == true,
     )
     return MainUiState(
