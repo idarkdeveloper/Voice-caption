@@ -1,0 +1,103 @@
+<resources>
+    <string name="app_name">Voice Caption</string>
+    <string name="capture_channel_name">Live captions</string>
+    <string name="capture_notification_title">Live captions are on</string>
+    <string name="capture_notification_text">Captioning the sound playing on this phone</string>
+    <string name="capture_action_stop">Stop</string>
+    <string name="capture_error_overlay_permission">Allow \"Display over other apps\" in the app first</string>
+    <string name="capture_error_record_audio">Allow the microphone permission in the app first</string>
+    <string name="capture_error_source_language">Choose the film\'s language in the app first</string>
+    <string name="capture_error_model_missing">Download the speech model in the app first</string>
+    <string name="capture_error_start_failed">Couldn\'t start captions. Please try again</string>
+    <string name="capture_error_unexpected">Captions stopped because of an error</string>
+    <string name="capture_blocked">This app doesn\'t allow audio capture</string>
+    <string name="capture_error_recognizer">Couldn\'t recognize speech. Try the other speech model in Settings, or re-download it.</string>
+    <string name="capture_translation_failed">Translation failed; showing the original text.</string>
+    <string name="capture_translation_missing">Translation pack not downloaded. Open the app to download</string>
+
+    <!-- Common -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_continue">Continue</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_open_settings">Open settings</string>
+    <string name="action_back">Back</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_open">Settings</string>
+
+    <!-- Language fields -->
+    <string name="language_film">Film language</string>
+    <string name="language_captions">Captions in</string>
+    <string name="language_choose">Choose %1$s</string>
+    <string name="language_swap">Swap film and caption languages</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_step_indicator">Step %1$d of %2$d</string>
+    <string name="onboarding_status_granted">Allowed</string>
+    <string name="onboarding_status_not_granted">Not allowed yet</string>
+    <string name="onboarding_intro_title">Live captions over any film</string>
+    <string name="onboarding_intro_body">Watch in one language and read captions in another, right on top of your video. Speech recognition and translation run on your phone. Audio and text never leave it.</string>
+    <string name="onboarding_intro_drm">Doesn\'t work with apps that block audio capture, such as some streaming apps.</string>
+    <string name="onboarding_overlay_title">Show captions over other apps</string>
+    <string name="onboarding_overlay_body">Captions appear in a floating box on top of your video. Android needs your OK for this.</string>
+    <string name="onboarding_overlay_action">Allow in settings</string>
+    <string name="onboarding_overlay_denied">Without this permission, captions can\'t appear over your video. You can allow it in settings.</string>
+    <string name="onboarding_notifications_title">Keep running while you watch</string>
+    <string name="onboarding_notifications_body">A small notification keeps captions running and gives you a quick way to stop them. This is optional.</string>
+    <string name="onboarding_notifications_action">Allow notifications</string>
+    <string name="onboarding_notifications_skip">Not now</string>
+    <string name="onboarding_notifications_denied">Without notifications you won\'t see the Stop shortcut. Captions still work. You can allow them in settings.</string>
+    <string name="onboarding_mic_title">Capture the sound your phone is playing</string>
+    <string name="onboarding_mic_body">No microphone audio is recorded. Captions use only the audio your phone is playing. Android requires this permission to capture playback.</string>
+    <string name="onboarding_mic_action">Allow audio capture</string>
+    <string name="onboarding_mic_denied">Without this permission, captions can\'t hear your video. You can allow it in settings.</string>
+
+    <!-- Home -->
+    <string name="home_start">Start captions</string>
+    <string name="home_stop">Stop captions</string>
+    <string name="home_status_needs_setup">Setup needed</string>
+    <string name="home_status_download_needed">Download needed</string>
+    <string name="home_status_downloading">Downloading</string>
+    <string name="home_status_download_failed">Download failed</string>
+    <string name="home_status_ready">Ready</string>
+    <string name="home_status_listening">Listening</string>
+    <string name="home_status_not_started">Not started</string>
+    <string name="home_reason_download">Download the speech model and language pack to start.</string>
+    <string name="home_reason_downloading">Wait for the download to finish.</string>
+    <string name="home_reason_download_failed">Fix the download problem, then try again.</string>
+    <string name="home_reason_setup">Finish setup to start.</string>
+    <string name="home_consent_title">Start captions?</string>
+    <string name="home_consent_body">Android will ask to record your screen. Captions only use the audio.</string>
+
+    <!-- Download card -->
+    <string name="download_both">Download speech model (about %1$d MB) and language pack</string>
+    <string name="download_model_only">Download speech model (about %1$d MB)</string>
+    <string name="download_pack_only">Download language pack</string>
+    <string name="download_action">Download</string>
+    <string name="download_retry">Retry</string>
+    <string name="download_cancel">Cancel download</string>
+    <string name="download_percent">%1$d%%</string>
+    <string name="download_progress_description">Download progress</string>
+
+    <!-- Settings -->
+    <string name="settings_preview">Preview</string>
+    <string name="settings_preview_description">Caption preview: %1$s</string>
+    <string name="settings_size_label">Caption size</string>
+    <string name="settings_size_value">%1$d sp</string>
+    <string name="settings_opacity_label">Caption background</string>
+    <string name="settings_opacity_value">%1$d%%</string>
+    <string name="settings_bilingual">Show original text</string>
+    <string name="settings_model">Speech model</string>
+    <string name="settings_model_fast">Fast (base)</string>
+    <string name="settings_model_accurate">Accurate (small)</string>
+    <string name="settings_model_helper">Accurate uses more battery and may lag on older phones</string>
+    <string name="settings_languages">Languages</string>
+    <string name="settings_storage">Storage</string>
+    <string name="settings_storage_installed">Installed, about %1$d MB</string>
+    <string name="settings_storage_not_installed">Not installed</string>
+    <string name="settings_storage_running">Stop captions to delete a model.</string>
+    <string name="settings_delete_description">Delete the %1$s speech model</string>
+    <string name="settings_delete_title">Delete speech model</string>
+    <string name="settings_delete_message">Delete the %1$s speech model? You can download it again later.</string>
+    <string name="model_name_fast">Fast</string>
+    <string name="model_name_accurate">Accurate</string>
+</resources>
