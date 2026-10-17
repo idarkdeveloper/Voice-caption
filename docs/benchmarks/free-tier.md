@@ -26,7 +26,7 @@ language packs) and keep it awake, not in battery saver.
       -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
 
 By default Gradle uninstalls the app and test APK after the run, which deletes the app's files
-(the downloaded models and `bench-results.json`). The `leaveApksInstalledAfterRun` property keeps
+(the downloaded models and `bench-results.jsonl`). The `leaveApksInstalledAfterRun` property keeps
 them installed so the model download survives between runs. The property name exists in AGP 8.7.3
 (this repo's version; found in its `BooleanOption` class), but it has not been exercised here:
 verify it on your device and AGP version.
@@ -36,19 +36,29 @@ To include SMALL (a larger download), add
 
 ### Getting the results
 
-Primary: logcat. The full results JSON is printed under tag `CaptionlyBench` between
-`BENCH_JSON_BEGIN` and `BENCH_JSON_END`, in chunks of at most 3500 characters. Extract it right
-after the run (the logcat buffer is finite):
+Results are JSON Lines: one self-contained JSON object per line, so no joining or chunk
+reassembly is needed. Record types: one `meta` (device, Android release, sdkInt, runs per clip),
+one `clip` per (model, clip) (transcript, error metric and rate, transcribe/translate/total ms,
+`translation` `ok` or `skipped`), and one `summary` per model (clip count, median ms, p95 ms,
+mean error rate). Every line is under 3000 characters; transcripts are cut at 400 characters
+(`transcriptTruncated: true`).
 
-    adb logcat -d -s CaptionlyBench | sed -n '/BENCH_JSON_BEGIN/,/BENCH_JSON_END/p'
+Primary: logcat tag `CaptionlyBench`, one entry per record between `BENCH_JSON_BEGIN` and
+`BENCH_JSON_END` entries. Extract it right after the run (the logcat buffer is finite):
 
-Each line carries a logcat prefix; strip it and concatenate the lines between the markers to get
-the JSON. Per-clip lines and a `SUMMARY` line per model are also logged under the same tag.
+    adb logcat -d -v raw -s CaptionlyBench | sed -n '/BENCH_JSON_BEGIN/,/BENCH_JSON_END/{//!p}' > bench-results.jsonl
 
-Secondary: `bench-results.json` in the app's files directory, available only if the app stayed
-installed (see above):
+`-v raw` removes the timestamp/pid/level prefix; `{//!p}` drops the two marker lines. Check it
+parses:
 
-    adb shell run-as com.voicecaption cat files/bench-results.json > bench-results.json
+    python3 -c "import sys,json; [json.loads(l) for l in open('bench-results.jsonl')]; print('ok')"
+
+Per-clip description lines and a `SUMMARY` line per model are also logged under the same tag.
+
+Secondary: the same JSON Lines are written to `bench-results.jsonl` in the app's files directory,
+available only if the app stayed installed (see above):
+
+    adb shell run-as com.voicecaption cat files/bench-results.jsonl > bench-results.jsonl
 
 ## Clips and their limits
 

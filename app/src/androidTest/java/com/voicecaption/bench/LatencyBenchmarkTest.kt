@@ -16,7 +16,6 @@ import kotlin.system.measureTimeMillis
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
-import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -27,7 +26,7 @@ import org.junit.runner.RunWith
  * Latency and accuracy benchmark. Needs a real device and network (model and language-pack
  * downloads on first run). Asserts sanity only (every transcript non-empty); it never asserts
  * latency or error-rate thresholds because devices differ. Results go to logcat (tag
- * [TAG], full JSON between BENCH_JSON_BEGIN/END) and to `bench-results.json` in the target app's
+ * [TAG], JSON Lines between BENCH_JSON_BEGIN/END, one record per entry) and to `bench-results.jsonl` in the target app's
  * filesDir (only retrievable if the app stays installed after the run).
  *
  * Run: `./gradlew connectedDebugAndroidTest --tests '*LatencyBenchmarkTest*'`
@@ -60,7 +59,8 @@ class LatencyBenchmarkTest {
         val modelsDir = File(context.filesDir, "models")
         val manager = ModelManager(modelsDir, HttpUrlConnectionDownloader())
         val packReady = mutableMapOf<String, Boolean>()
-        val models = JSONArray()
+        val clipRecords = mutableListOf<ClipRecord>()
+        val summaries = mutableListOf<SummaryRecord>()
         val emptyTranscripts = mutableListOf<String>()
 
         for (size in sizes) {
@@ -74,29 +74,28 @@ class LatencyBenchmarkTest {
             }
             val summary = ModelSummary.of(size.name, results)
             Log.i(TAG, summary.describe())
-            models.put(summary.toJson(results))
+            clipRecords += results.map { it.toRecord(size.name) }
+            summaries += summary.toRecord()
             whisper.close()
             openModels.remove(whisper)
         }
 
-        val json = JSONObject()
-            .put("device", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-            .put("androidRelease", android.os.Build.VERSION.RELEASE)
-            .put("sdkInt", android.os.Build.VERSION.SDK_INT)
-            .put("runsPerClip", RUNS)
-            .put("models", models)
-            .toString(2)
-        logJson(json) // primary output: survives the test run uninstalling the app
+        val meta = BenchMeta(
+            "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+            android.os.Build.VERSION.RELEASE, android.os.Build.VERSION.SDK_INT, RUNS,
+        )
+        val lines = ResultsJsonLines.build(meta, clipRecords, summaries)
+        logJsonLines(lines) // primary output: survives the test run uninstalling the app
         val out = File(context.filesDir, RESULTS_FILE) // secondary: only if the app stays installed
-        out.writeText(json)
+        out.writeText(lines.joinToString("\n", postfix = "\n"))
         Log.i(TAG, "Results also written to ${out.absolutePath}")
         assertTrue("Empty transcripts: $emptyTranscripts", emptyTranscripts.isEmpty())
     }
 
-    /** Prints [json] between BENCH_JSON_BEGIN / BENCH_JSON_END markers, in chunks short enough for logcat. */
-    private fun logJson(json: String) {
+    /** One Log.i per record (each is a complete JSON object), between BEGIN/END marker entries. */
+    private fun logJsonLines(lines: List<String>) {
         Log.i(TAG, "BENCH_JSON_BEGIN")
-        json.chunked(LOG_CHUNK).forEach { Log.i(TAG, it) }
+        lines.forEach { Log.i(TAG, it) }
         Log.i(TAG, "BENCH_JSON_END")
     }
 
@@ -179,13 +178,9 @@ class LatencyBenchmarkTest {
         fun describe() = "$file lang=$lang ${error.metric}=${"%.3f".format(error.value)} " +
             "transcribeMs=$transcribeMs translation=${translateMs?.let { "${it}ms" } ?: "skipped"} totalMs=$totalMs"
 
-        fun toJson() = JSONObject()
-            .put("file", file).put("lang", lang).put("transcript", transcript)
-            .put("metric", error.metric.name).put("errorRate", error.value)
-            .put("transcribeMs", transcribeMs)
-            .put("translation", if (translateMs == null) "skipped" else "ok")
-            .put("translateMs", translateMs ?: JSONObject.NULL)
-            .put("totalMs", totalMs)
+        fun toRecord(model: String) = ClipRecord(
+            model, file, lang, transcript, error.metric.name, error.value, transcribeMs, translateMs, totalMs,
+        )
     }
 
     private class ModelSummary(
@@ -198,10 +193,7 @@ class LatencyBenchmarkTest {
         fun describe() = "SUMMARY model=$model clips=$clipCount medianMs=$medianMs p95Ms=$p95Ms " +
             "meanErrorRate=${"%.3f".format(meanError)}"
 
-        fun toJson(results: List<ClipResult>) = JSONObject()
-            .put("model", model).put("clipCount", clipCount)
-            .put("medianMs", medianMs).put("p95Ms", p95Ms).put("meanErrorRate", meanError)
-            .put("clips", JSONArray(results.map { it.toJson() }))
+        fun toRecord() = SummaryRecord(model, clipCount, medianMs, p95Ms, meanError)
 
         companion object {
             /** Aggregates over every individual timed run of every clip. */
@@ -217,7 +209,7 @@ class LatencyBenchmarkTest {
 
     private companion object {
         const val TAG = "CaptionlyBench"
-        const val RESULTS_FILE = "bench-results.json"
+        const val RESULTS_FILE = "bench-results.jsonl"
         const val RUNS = 3
         const val LOG_CHUNK = 3500
         const val SAMPLE_RATE = 16_000
