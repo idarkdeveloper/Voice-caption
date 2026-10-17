@@ -38,9 +38,11 @@ class SenseVoiceLocal(private val modelDir: File) : SpeechRecognizer {
     private var currentLanguage: String? = null
     private var closed = false
 
-    override suspend fun transcribe(segment: SpeechSegment, language: String): String {
+    override suspend fun transcribe(segment: SpeechSegment, language: String): String = recognize(segment, language).text
+
+    override suspend fun recognize(segment: SpeechSegment, language: String): Transcript {
         check(!synchronized(lock) { closed }) { "SenseVoiceLocal is closed" }
-        if (segment.samples.isEmpty()) return ""
+        if (segment.samples.isEmpty()) return Transcript("")
         val lang = normalizeSenseVoiceLanguage(language)
         return withContext(Dispatchers.Default) {
             synchronized(lock) {
@@ -50,7 +52,8 @@ class SenseVoiceLocal(private val modelDir: File) : SpeechRecognizer {
                 try {
                     stream.acceptWaveform(segment.samples, SAMPLE_RATE)
                     rec.decode(stream)
-                    rec.getResult(stream).text.trim()
+                    val result = rec.getResult(stream)
+                    Transcript(result.text.trim(), normalizeDetectedLanguage(result.lang))
                 } finally {
                     stream.release()
                 }

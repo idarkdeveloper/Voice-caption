@@ -28,6 +28,8 @@
     <string name="language_film">Film language</string>
     <string name="language_captions">Captions in</string>
     <string name="language_choose">Choose %1$s</string>
+    <string name="language_auto">Auto-detect</string>
+    <string name="language_auto_helper">TransCap listens to the first sentences to find the film\'s language. Works best when captions are in English.</string>
     <string name="language_swap">Swap film and caption languages</string>
 
     <!-- Onboarding -->

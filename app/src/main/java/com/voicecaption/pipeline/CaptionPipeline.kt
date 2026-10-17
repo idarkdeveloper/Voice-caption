@@ -1,6 +1,7 @@
 package com.voicecaption.pipeline
 
 import com.voicecaption.asr.SpeechRecognizer
+import com.voicecaption.asr.isAutoLanguage
 import com.voicecaption.caption.CaptionStabilizer
 import com.voicecaption.core.Caption
 import com.voicecaption.core.CaptionSettings
@@ -63,6 +64,8 @@ data class PipelineStats(
     /** What the recognizer returned for the last segment (blank = empty). */
     val lastRaw: String = "",
     val lastNoise: Boolean = false,
+    /** Language of the last recognized text when known (the detected one for auto-detect). */
+    val lastLang: String = "",
 )
 
 /**
@@ -194,8 +197,8 @@ class CaptionPipeline(
         if (!job.segment.partial) newestSeq.remove(job.id)
         val s = settings()
         val decodeStart = clock()
-        val text = try {
-            recognizer.transcribe(job.segment, s.sourceLang)
+        val transcript = try {
+            recognizer.recognize(job.segment, s.sourceLang)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -204,13 +207,27 @@ class CaptionPipeline(
         }
         segmentsRecognized++
         val decodeMs = clock() - decodeStart
+        val text = transcript.text
         val cleaned = stripSoundTags(text)
         val noise = isNoise(cleaned)
-        bump { it.copy(recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs, lastRaw = text.trim(), lastNoise = noise) }
+        // The language of the text we hold: what the recognizer already outputs, else the spoken
+        // language (the chosen one, or the detected one for auto-detect; null while still unknown).
+        val textLang = recognizer.outputLanguage ?: if (isAutoLanguage(s.sourceLang)) transcript.language else s.sourceLang
+        bump {
+            it.copy(
+                recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs,
+                lastRaw = text.trim(), lastNoise = noise, lastLang = textLang.orEmpty(),
+            )
+        }
         if (noise) return
         val shown = cleaned.trim()
 
-        if (sameLanguage(recognizer.outputLanguage ?: s.sourceLang, s.targetLang)) {
+        if (textLang == null) { // auto-detect has not decided yet: show the original, translate later
+            update { onSourceText(job.id, shown, clock()) }
+            recordLag(job, 0)
+            return
+        }
+        if (sameLanguage(textLang, s.targetLang)) {
             update {
                 onSourceText(job.id, shown, clock())
                 onTranslated(job.id, shown, clock())
@@ -221,7 +238,7 @@ class CaptionPipeline(
         update { onSourceText(job.id, shown, clock()) }
         try {
             val translateStart = clock()
-            val translated = translator.translate(shown, s.sourceLang, s.targetLang)
+            val translated = translator.translate(shown, textLang, s.targetLang)
             recordLag(job, clock() - translateStart)
             notReadyReported = false
             // The source caption may have expired or been evicted while translating; a late

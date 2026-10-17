@@ -88,8 +88,8 @@ class MainViewModel(
         refreshTick.value++
     }
 
-    /** Sets the spoken language; codes that are not a concrete supported language are ignored. */
-    fun onSourceLanguage(code: String) = update { it.copy(sourceLang = SupportedLanguages.coerce(code, it.sourceLang)) }
+    /** Sets the spoken language ("auto" lets the app detect it); other unsupported codes are ignored. */
+    fun onSourceLanguage(code: String) = update { it.copy(sourceLang = SupportedLanguages.coerceSource(code, it.sourceLang)) }
 
     /** Sets the caption language; unsupported codes are ignored. */
     fun onTargetLanguage(code: String) = update { it.copy(targetLang = SupportedLanguages.coerce(code, it.targetLang)) }

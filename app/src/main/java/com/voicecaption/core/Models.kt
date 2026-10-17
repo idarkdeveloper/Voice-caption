@@ -57,6 +57,7 @@ object ModelChoice {
         if (!auto) return preferred
         val primary = sourceLang.trim().lowercase().split('-', '_').first()
         return when {
+            primary == "auto" -> if (preferred == ModelSize.SENSEVOICE) ModelSize.BASE else preferred // Whisper listens first
             primary in SENSEVOICE_FIRST -> ModelSize.SENSEVOICE
             preferred == ModelSize.SENSEVOICE -> ModelSize.BASE // Whisper covers every other language
             else -> preferred

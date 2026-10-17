@@ -155,10 +155,20 @@ class MainViewModelTest {
     @Test
     fun unsupportedSourceLanguageIsIgnored() = runTest {
         val vm = vm()
-        vm.onSourceLanguage("auto")
         vm.onSourceLanguage("zz")
+        vm.onSourceLanguage("")
         runCurrent()
         assertEquals("en", vm.uiState.value.settings.sourceLang)
+    }
+
+    @Test
+    fun autoDetectCanBeChosenForTheFilmLanguageButNeverForCaptions() = runTest {
+        val vm = vm()
+        vm.onSourceLanguage("auto")
+        vm.onTargetLanguage("auto")
+        runCurrent()
+        assertEquals("auto", vm.uiState.value.settings.sourceLang)
+        assertEquals("en", vm.uiState.value.settings.targetLang)
     }
 
     @Test

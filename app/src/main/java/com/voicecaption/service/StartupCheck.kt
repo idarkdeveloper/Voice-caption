@@ -13,8 +13,7 @@ sealed interface StartupResult {
 object StartupCheck {
     /**
      * Returns the first failing precondition, in the order overlay permission, RECORD_AUDIO,
-     * source language (blank or "auto" is not a concrete language and must never reach the
-     * translator), speech model installed; [StartupResult.Ok] when all hold.
+     * source language (blank is not a language; "auto" is allowed), speech model installed; [StartupResult.Ok] when all hold.
      */
     fun evaluate(
         overlayAllowed: Boolean,
@@ -25,7 +24,7 @@ object StartupCheck {
         val problem = when {
             !overlayAllowed -> StartupProblem.OVERLAY_PERMISSION
             !recordAudioGranted -> StartupProblem.RECORD_AUDIO
-            sourceLang.isBlank() || sourceLang.trim().equals("auto", ignoreCase = true) -> StartupProblem.SOURCE_LANGUAGE
+            sourceLang.isBlank() -> StartupProblem.SOURCE_LANGUAGE
             !modelInstalled -> StartupProblem.MODEL_MISSING
             else -> return StartupResult.Ok
         }

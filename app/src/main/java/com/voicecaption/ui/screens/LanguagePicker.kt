@@ -76,22 +76,31 @@ fun LanguagePairRow(
         LanguageField(captionsLabel, targetLang, onClick = { pickingTarget = true }, modifier = it)
     }
     val swap: @Composable () -> Unit = {
-        IconButton(onClick = onSwap) {
+        IconButton(onClick = onSwap, enabled = !SupportedLanguages.isAuto(sourceLang)) {
             Icon(painterResource(R.drawable.ic_swap), contentDescription = stringResource(R.string.language_swap))
         }
     }
 
-    if (LocalConfiguration.current.fontScale > STACK_FONT_SCALE) {
-        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-            film(Modifier.fillMaxWidth())
-            swap()
-            captions(Modifier.fillMaxWidth())
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+        if (LocalConfiguration.current.fontScale > STACK_FONT_SCALE) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                film(Modifier.fillMaxWidth())
+                swap()
+                captions(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                film(Modifier.weight(1f))
+                swap()
+                captions(Modifier.weight(1f))
+            }
         }
-    } else {
-        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            film(Modifier.weight(1f))
-            swap()
-            captions(Modifier.weight(1f))
+        if (SupportedLanguages.isAuto(sourceLang)) {
+            Text(
+                stringResource(R.string.language_auto_helper),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 
@@ -99,6 +108,7 @@ fun LanguagePairRow(
         LanguagePickerDialog(
             title = filmLabel,
             selected = sourceLang,
+            allowAuto = true,
             onSelect = { onSourceSelected(it); pickingSource = false },
             onDismiss = { pickingSource = false },
         )
@@ -117,7 +127,7 @@ fun LanguagePairRow(
 @Composable
 fun LanguageField(label: String, code: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(Spacing.Small)
-    val name = SupportedLanguages.displayName(code)
+    val name = if (SupportedLanguages.isAuto(code)) stringResource(R.string.language_auto) else SupportedLanguages.displayName(code)
     Row(
         modifier = modifier
             .heightIn(min = Spacing.PrimaryButton)
@@ -140,8 +150,9 @@ fun LanguageField(label: String, code: String, onClick: () -> Unit, modifier: Mo
 }
 
 /**
- * A dialog listing every supported language (never "auto"). The current choice is marked with a
- * check icon and bold text and is exposed as selected to TalkBack; rows are at least 48 dp tall.
+ * A dialog listing every supported language, with "Auto-detect" first when [allowAuto] (the film
+ * language only). The current choice is marked with a check icon and bold text and is exposed as
+ * selected to TalkBack; rows are at least 48 dp tall.
  */
 @Composable
 fun LanguagePickerDialog(
@@ -149,9 +160,13 @@ fun LanguagePickerDialog(
     selected: String,
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit,
+    allowAuto: Boolean = false,
 ) {
-    val codes = SupportedLanguages.codes
-    val names = remember { codes.map { SupportedLanguages.displayName(it) } }
+    val autoName = stringResource(R.string.language_auto)
+    val codes = if (allowAuto) listOf(SupportedLanguages.AUTO) + SupportedLanguages.codes else SupportedLanguages.codes
+    val names = remember(allowAuto, autoName) {
+        codes.map { if (it == SupportedLanguages.AUTO) autoName else SupportedLanguages.displayName(it) }
+    }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = codes.indexOf(selected).coerceAtLeast(0))
     AlertDialog(
         onDismissRequest = onDismiss,

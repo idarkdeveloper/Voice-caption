@@ -40,7 +40,7 @@ internal val FONT_SIZE_RANGE_SP = 14..32
 internal fun validate(raw: CaptionSettings): CaptionSettings {
     val defaults = CaptionSettings()
     return raw.copy(
-        sourceLang = SupportedLanguages.coerce(raw.sourceLang, "en"),
+        sourceLang = SupportedLanguages.coerceSource(raw.sourceLang, "en"),
         targetLang = SupportedLanguages.coerce(raw.targetLang, "en"),
         fontSizeSp = raw.fontSizeSp.coerceIn(FONT_SIZE_RANGE_SP),
         opacity = if (raw.opacity.isNaN()) defaults.opacity else raw.opacity.coerceIn(OverlayMath.MIN_OPACITY, 1f),

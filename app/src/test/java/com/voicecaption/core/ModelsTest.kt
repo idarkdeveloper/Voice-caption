@@ -30,4 +30,17 @@ class ModelsTest {
         assertEquals(ModelSize.BASE, CaptionSettings(sourceLang = "ja", modelSize = ModelSize.BASE, autoModel = false).activeModel)
         assertEquals(ModelSize.SENSEVOICE, CaptionSettings(sourceLang = "en", modelSize = ModelSize.SENSEVOICE, autoModel = false).activeModel)
     }
+
+    @Test
+    fun autoDetectedFilmLanguageUsesWhisperForListening() {
+        assertEquals(ModelSize.BASE, CaptionSettings(sourceLang = "auto").activeModel)
+        assertEquals(ModelSize.SMALL, CaptionSettings(sourceLang = "auto", modelSize = ModelSize.SMALL).activeModel)
+        // A stored SenseVoice choice cannot listen to unknown languages; Whisper does.
+        assertEquals(ModelSize.BASE, CaptionSettings(sourceLang = "auto", modelSize = ModelSize.SENSEVOICE).activeModel)
+        // An explicit SenseVoice choice still wins.
+        assertEquals(
+            ModelSize.SENSEVOICE,
+            CaptionSettings(sourceLang = "auto", modelSize = ModelSize.SENSEVOICE, autoModel = false).activeModel,
+        )
+    }
 }

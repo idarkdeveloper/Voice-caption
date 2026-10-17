@@ -103,7 +103,7 @@ font size. Weight regular. Maximum 5 lines per box.
 | Component | Purpose | Key variants |
 |-----------|---------|-------------|
 | Primary button | The one main action (Start / Stop captions), 56 dp tall, full width | Start (primary), Stop (error outline *(intent)*), disabled with a reason |
-| Language field | Choose film language or caption language, opens a list | Film, Captions |
+| Language field | Choose film language or caption language, opens a list | Film (first entry "Auto-detect"), Captions |
 | Swap button | Exchange the two languages | - |
 | Status line | State in words plus an icon, never colour alone | Setup needed, Download needed, Downloading, Download failed, Ready, Listening, Not started |
 | Download card | Size, progress, cancel, retry for the speech model and language pack | Idle, Downloading, Failed, Done |
@@ -226,6 +226,7 @@ Buttons start with a verb.
 | caption box | plate, overlay (to users) |
 | speech model | AI model, engine |
 | film language / captions in | source / target language |
+| Auto-detect | auto, automatic language |
 | language pack | translation pack, dictionary |
 | Can't hear this app | Audio capture unavailable |
 

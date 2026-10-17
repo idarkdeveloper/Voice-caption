@@ -26,6 +26,7 @@ reference, not screenshots.
 | Caption layout | One plate; original text as a smaller first line | **Two plates**: original text above, translation below |
 | Caption style | Size and opacity | Size, opacity, **text colour, background colour**, contrast warning |
 | Display time | Fixed 4 s | Scales with text length (4 to 9 s) |
+| Film language | Always chosen by hand | **Auto-detect** option: the app listens and finds the language |
 
 ## 2. Feature inventory
 
@@ -36,7 +37,7 @@ reference, not screenshots.
 4. **Live partial captions**, refreshed every 0.8 s (SenseVoice) or 1.5 s (Whisper).
 5. **Two plates**: original-language box (smaller, slightly softer text) above the translation box. Each box is moved on its own; the original box stays stacked above the translation box until it is moved. A line not yet translated shows in the original box only. "Reset caption positions" in Settings.
 6. **Caption style**: size 14 to 32 sp, background opacity 50 to 100 %, five text colours, five background colours, custom `RRGGBB`, contrast warning below 4.5:1.
-7. **Languages**: 57 film and caption languages (the set both Whisper and ML Kit support). Swap button.
+7. **Languages**: 57 film and caption languages (the set both Whisper and ML Kit support). Swap button. The film language can also be **Auto-detect**: Whisper listens to the first sentences and names the language (it locks after two agreeing sentences of at least one second each, and stays for the session). Chinese, Japanese, Korean and Cantonese then move to SenseVoice if it is installed and the caption language is reachable; everything else stays on Whisper. Until the language is known, captions show the original text without translation (with English captions Whisper translates from the start, so this only affects other caption languages). Swap is off while Auto-detect is chosen.
 8. **Storage**: download, size shown, delete with confirmation.
 9. **Diagnostics line** (debug builds only): model, segment length, decode time, lag, raw recognizer text.
 
@@ -95,7 +96,7 @@ primary button, the consent note above it and the blocked-app note below.
 | Zone | Content |
 |---|---|
 | Header | App name, Settings button (48 dp) |
-| Language pair | Two fields with a swap button between them |
+| Language pair | Two fields with a swap button between them; the film language can be Auto-detect (swap is off then, with a one-line explanation) |
 | Status chip | State plus the model that will run, e.g. "Ready · Speech model: SenseVoice (Auto)" |
 | Primary action | **Start captions** / **Stop captions**, full width, 56 dp |
 | Notes | Screen-record consent explanation; DRM limit |
@@ -129,6 +130,8 @@ Three steps: what it does (with the DRM limit), permissions (overlay, notificati
 | Model not downloaded | Start disabled; download card shows exact size |
 | Offline, pack missing | One-time message on the plate; original text still shown |
 | App blocks audio capture | After about 5 s of silence while media plays: plain message with a next step |
+| Auto-detect, language not known yet | Captions show the original text without translation; with English captions Whisper translates straight away |
+| Auto-detect, caption language not English | Needs the language pack of the detected language; if it is missing the existing "translation isn't ready" message appears |
 | Contrast below 4.5:1 | Written warning in Settings; the choice is still allowed |
 | Settings change while running | Style applies to the next caption; model changes apply on the next Start |
 | Delete model while running | Disabled, with a reason |
@@ -171,6 +174,8 @@ in `strings.xml`, the theme and the manifest all use it).
 | Download hint | (none) | Use Wi-Fi to avoid mobile data charges. | Sets expectations before a 240 MB download |
 | Live text hint (first run of captions) | (none) | Captions appear as people speak and may change as more words arrive. | Prevents confusion |
 | Move hint | (none) | While captions are on, drag each caption box up or down to place it. | Teaches the gesture (in Settings) |
+| Film language, detect for me | (none) | Auto-detect | Short, matches the other options |
+| Auto-detect helper | (none) | TransCap listens to the first sentences to find the film's language. Works best when captions are in English. | Says how it works and its limit |
 | Cancel download | Cancel download | Cancel download (keeps what's already downloaded) | Describes the consequence |
 
 ### Alternatives for the three most important lines

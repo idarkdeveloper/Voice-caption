@@ -16,6 +16,7 @@ import com.voicecaption.core.ModelSize
 import com.voicecaption.service.CaptureStatus
 import com.voicecaption.service.ServiceDependencies
 import com.voicecaption.settings.SettingsRepository
+import com.voicecaption.settings.SupportedLanguages
 import com.voicecaption.translate.MlKitTranslator
 import com.voicecaption.ui.state.DownloadController
 import com.voicecaption.ui.state.MainViewModel
@@ -105,7 +106,7 @@ class AppContainer(context: Context) {
         }
 
         override suspend fun isTranslationReady(source: String, target: String) =
-            source == target || guarded("isReady") { translator.isReady(source, target) }
+            source == target || SupportedLanguages.isAuto(source) || guarded("isReady") { translator.isReady(source, target) }
 
         override suspend fun deleteModel(size: ModelSize) =
             guarded("delete") { withContext(Dispatchers.IO) { modelManager.delete(size) } }

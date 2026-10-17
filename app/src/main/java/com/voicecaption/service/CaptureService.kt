@@ -23,6 +23,7 @@ import android.widget.Toast
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.voicecaption.R
+import com.voicecaption.asr.AutoRecognizer
 import com.voicecaption.asr.HttpUrlConnectionDownloader
 import com.voicecaption.asr.ModelManager
 import com.voicecaption.asr.ModelSelector
@@ -37,6 +38,7 @@ import com.voicecaption.overlay.OverlayRenderer
 import com.voicecaption.pipeline.CaptionPipeline
 import com.voicecaption.pipeline.PipelineError
 import com.voicecaption.translate.MlKitTranslator
+import com.voicecaption.settings.SupportedLanguages
 import com.voicecaption.vad.SileroVad
 import com.voicecaption.vad.VadConfig
 import com.voicecaption.vad.VadSegmenter
@@ -202,16 +204,33 @@ class CaptureService : Service() {
             proj.registerCallback(callback, mainHandler)
 
             val vadInstance = SileroVad(this).also { vad = it }
+            val translatorInstance = MlKitTranslator(this).also { translator = it }
+            val sourceAuto = SupportedLanguages.isAuto(settings.sourceLang)
             // English captions for a non-English film: Whisper translates the speech directly, which
             // measured clearly more accurate than transcribing and then translating with ML Kit.
+            // With auto-detect the film may be in any language, so Whisper translates whenever the
+            // captions are English (for English speech that is a no-op).
             val whisperTranslates = modelSize != ModelSize.SENSEVOICE &&
                 settings.targetLang.lowercase().startsWith("en") &&
-                !settings.sourceLang.lowercase().startsWith("en")
-            val modelDir = File(ServiceDependencies.modelsDir(this), modelSize.dirName())
-            val whisperInstance: SpeechRecognizer =
-                if (modelSize == ModelSize.SENSEVOICE) SenseVoiceLocal(modelDir) else WhisperLocal(modelDir, modelSize, whisperTranslates)
+                (sourceAuto || !settings.sourceLang.lowercase().startsWith("en"))
+            val modelsDir = ServiceDependencies.modelsDir(this)
+            val modelDir = File(modelsDir, modelSize.dirName())
+            val whisperInstance: SpeechRecognizer = when {
+                modelSize == ModelSize.SENSEVOICE -> SenseVoiceLocal(modelDir)
+                sourceAuto -> AutoRecognizer(
+                    whisper = WhisperLocal(modelDir, modelSize, whisperTranslates),
+                    // SenseVoice is used for Chinese, Japanese, Korean and Cantonese when it is installed.
+                    senseVoice = if (ModelManager(modelsDir, HttpUrlConnectionDownloader()).isInstalled(ModelSize.SENSEVOICE)) {
+                        SenseVoiceLocal(File(modelsDir, ModelSize.SENSEVOICE.dirName()))
+                    } else {
+                        null
+                    },
+                    translatorReady = { source, target -> translatorInstance.isReady(source, target) },
+                    targetLang = { ServiceDependencies.settings().targetLang },
+                )
+                else -> WhisperLocal(modelDir, modelSize, whisperTranslates)
+            }
             whisper = whisperInstance
-            val translatorInstance = MlKitTranslator(this).also { translator = it }
             val pipe = CaptionPipeline(
                 segmenter = VadSegmenter(vadInstance, VadConfig(partialEveryMs = if (modelSize == ModelSize.SENSEVOICE) PARTIAL_FAST_MS else PARTIAL_EVERY_MS)),
                 recognizer = whisperInstance,
@@ -227,7 +246,7 @@ class CaptureService : Service() {
             launchCollectors(pipe, audio, mon, renderer)
             CaptureStatus.set(true)
             scope.launch {
-                if (!whisperTranslates && !translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
+                if (!sourceAuto && !whisperTranslates && !translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -251,6 +270,7 @@ class CaptureService : Service() {
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             val modelLabel = when (val r = whisper) {
                 is SenseVoiceLocal -> "SENSEVOICE"
+                is AutoRecognizer -> "AUTO"
                 is WhisperLocal -> r.size.name + if (r.outputLanguage != null) "+translate" else ""
                 else -> "?"
             }
@@ -258,7 +278,8 @@ class CaptureService : Service() {
                 pipe.stats.collect { st ->
                     val raw = if (st.lastRaw.isEmpty()) "(empty)" else if (st.lastNoise) "(filtered) ${st.lastRaw}" else st.lastRaw
                     renderer.setDebugLine(
-                        "${modelLabel} cut ${st.cut} drop ${st.dropped} | seg ${st.lastSegmentMs}ms " +
+                        "${modelLabel}${(whisper as? AutoRecognizer)?.let { " ${it.engine}" }.orEmpty()} lang ${st.lastLang.ifEmpty { "?" }} " +
+                            "cut ${st.cut} drop ${st.dropped} | seg ${st.lastSegmentMs}ms " +
                             "asr ${st.lastDecodeMs}ms lag ${st.lastLagMs}ms\nraw: $raw",
                     )
                 }

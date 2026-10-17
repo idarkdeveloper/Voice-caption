@@ -2,6 +2,7 @@ package com.voicecaption.ui.state
 
 import com.voicecaption.asr.ModelManager
 import com.voicecaption.core.ModelSize
+import com.voicecaption.settings.SupportedLanguages
 import com.voicecaption.translate.Translator
 import java.io.File
 import java.net.ConnectException
@@ -122,7 +123,7 @@ class DownloadController(
 
     private suspend fun execute(req: Request, report: (Float, String) -> Unit): Result<Unit> {
         val needModel = !installer.isInstalled(req.size)
-        val needPack = !translator.isReady(req.source, req.target)
+        val needPack = !SupportedLanguages.isAuto(req.source) && !translator.isReady(req.source, req.target)
         val modelWeight = if (needModel && needPack) MODEL_SHARE else if (needModel) 1f else 0f
         if (needModel) {
             report(0f, LABEL_MODEL)

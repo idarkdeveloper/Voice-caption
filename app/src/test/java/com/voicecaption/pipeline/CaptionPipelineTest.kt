@@ -1,6 +1,7 @@
 package com.voicecaption.pipeline
 
 import com.voicecaption.asr.SpeechRecognizer
+import com.voicecaption.asr.Transcript
 import com.voicecaption.caption.CaptionStabilizer
 import com.voicecaption.core.Caption
 import com.voicecaption.core.CaptionSettings
@@ -37,6 +38,7 @@ class CaptionPipelineTest {
 
     private class FakeRecognizer(
         override val outputLanguage: String? = null,
+        private val detectedLanguage: String? = null,
         private val reply: suspend (SpeechSegment, String) -> String,
     ) : SpeechRecognizer {
         val segmentStarts = mutableListOf<Long>()
@@ -46,6 +48,8 @@ class CaptionPipelineTest {
             languages += language
             return reply(segment, language)
         }
+        override suspend fun recognize(segment: SpeechSegment, language: String) =
+            Transcript(transcribe(segment, language), detectedLanguage)
         override fun close() = Unit
     }
 
@@ -53,8 +57,10 @@ class CaptionPipelineTest {
         private val reply: suspend (String) -> String = { "T($it)" },
     ) : Translator {
         var calls = 0
+        val sources = mutableListOf<String>()
         override suspend fun translate(text: String, sourceLang: String, targetLang: String): String {
             calls++
+            sources += sourceLang
             return reply(text)
         }
         override suspend fun isReady(sourceLang: String, targetLang: String) = true
@@ -407,5 +413,48 @@ class CaptionPipelineTest {
         r2.feedSpeech()
         runCurrent()
         assertEquals("I'm sorry", r2.pipeline.captions.value.single().translatedText)
+    }
+
+    private val autoSettings = CaptionSettings(sourceLang = "auto", targetLang = "en")
+
+    @Test
+    fun autoDetectShowsTheOriginalWithoutTranslatingWhileTheLanguageIsUnknown() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(detectedLanguage = null) { _, _ -> "konnichiwa" }, translator, autoSettings)
+        r.feedSpeech()
+        runCurrent()
+        val caption = r.pipeline.captions.value.single()
+        assertEquals("konnichiwa", caption.sourceText)
+        assertNull(caption.translatedText)
+        assertEquals(0, translator.calls)
+    }
+
+    @Test
+    fun autoDetectTranslatesFromTheDetectedLanguage() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(detectedLanguage = "ja") { _, _ -> "konnichiwa" }, translator, autoSettings)
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("ja"), translator.sources)
+        assertEquals("T(konnichiwa)", r.pipeline.captions.value.single().translatedText)
+    }
+
+    @Test
+    fun autoDetectWithARecognizerThatAlreadyOutputsEnglishNeedsNoTranslation() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(outputLanguage = "en", detectedLanguage = null) { _, _ -> "hello" }, translator, autoSettings)
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(0, translator.calls)
+        assertEquals("hello", r.pipeline.captions.value.single().translatedText)
+    }
+
+    @Test
+    fun anExplicitLanguageIsUnaffectedByWhatTheRecognizerReports() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(detectedLanguage = "ja") { _, _ -> "hola" }, translator, CaptionSettings(sourceLang = "es", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("es"), translator.sources)
     }
 }
