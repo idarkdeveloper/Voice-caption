@@ -75,4 +75,21 @@ class CaptionStabilizerTest {
         assertEquals(1, s.expire(3999).size)
         assertTrue(s.expire(4001).isEmpty())
     }
+
+    @Test
+    fun longTextStaysLongerThanShortText() {
+        val s = CaptionStabilizer()
+        val long = "x".repeat(60) // 1500 + 60 * 80 = 6300 ms
+        s.onTranslated(1, long, 0)
+        assertEquals(1, s.expire(6000).size)
+        assertTrue(s.expire(6301).isEmpty())
+    }
+
+    @Test
+    fun displayTimeIsCapped() {
+        val s = CaptionStabilizer()
+        s.onTranslated(1, "x".repeat(500), 0)
+        assertEquals(1, s.expire(9000).size)
+        assertTrue(s.expire(9001).isEmpty())
+    }
 }

@@ -18,6 +18,8 @@ import com.voicecaption.core.Caption
 class CaptionStabilizer(
     private val maxLines: Int = 2,
     private val displayMs: Long = 4000,
+    private val msPerChar: Long = 80,
+    private val maxDisplayMs: Long = 9000,
 ) {
     private val captions = LinkedHashMap<Long, Caption>()
 
@@ -41,10 +43,19 @@ class CaptionStabilizer(
         return visible()
     }
 
-    /** Drops captions whose last update is more than `displayMs` before [nowMs]. */
+    /**
+     * Drops captions that have been on screen long enough. A caption stays at least [displayMs] after
+     * its last update, longer for long text (about [msPerChar] per character, up to [maxDisplayMs]),
+     * so a long sentence is not removed before it can be read.
+     */
     fun expire(nowMs: Long): List<Caption> {
-        captions.values.removeAll { nowMs - it.updatedAtMs > displayMs }
+        captions.values.removeAll { nowMs - it.updatedAtMs > displayTimeMs(it) }
         return visible()
+    }
+
+    private fun displayTimeMs(c: Caption): Long {
+        val chars = (c.translatedText ?: c.sourceText).length
+        return (1500 + chars * msPerChar).coerceIn(displayMs, maxOf(displayMs, maxDisplayMs))
     }
 
     private fun trim() {

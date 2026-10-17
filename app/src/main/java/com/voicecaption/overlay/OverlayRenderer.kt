@@ -258,8 +258,8 @@ class OverlayRenderer(context: Context) {
         const val DEFAULT_BOTTOM_DP = 48
         const val DEBUG_SP = 11
         const val TOP_RESERVED_DP = 48
-        const val MAX_LINES = 2
-        const val MAX_LINES_BILINGUAL = 4
+        const val MAX_LINES = 5
+        const val MAX_LINES_BILINGUAL = 8
         const val SOURCE_LINE_SCALE = 0.8f
 
         /** Remembered drag position (px from bottom); null until the user drags. Main thread only. */
