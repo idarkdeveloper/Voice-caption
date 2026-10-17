@@ -13,6 +13,7 @@ import com.voicecaption.testutil.WavReader
 import com.voicecaption.translate.MlKitTranslator
 import java.io.File
 import kotlin.system.measureTimeMillis
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
@@ -26,7 +27,8 @@ import org.junit.runner.RunWith
  * Latency and accuracy benchmark. Needs a real device and network (model and language-pack
  * downloads on first run). Asserts sanity only (every transcript non-empty); it never asserts
  * latency or error-rate thresholds because devices differ. Results go to logcat (tag
- * [TAG]) and to `bench-results.json` in the target app's filesDir.
+ * [TAG], full JSON between BENCH_JSON_BEGIN/END) and to `bench-results.json` in the target app's
+ * filesDir (only retrievable if the app stays installed after the run).
  *
  * Run: `./gradlew connectedDebugAndroidTest --tests '*LatencyBenchmarkTest*'`
  * Add `-Pandroid.testInstrumentationRunnerArguments.bench.small=true` to include SMALL.
@@ -77,18 +79,25 @@ class LatencyBenchmarkTest {
             openModels.remove(whisper)
         }
 
-        val out = File(context.filesDir, RESULTS_FILE)
-        out.writeText(
-            JSONObject()
-                .put("device", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-                .put("androidRelease", android.os.Build.VERSION.RELEASE)
-                .put("sdkInt", android.os.Build.VERSION.SDK_INT)
-                .put("runsPerClip", RUNS)
-                .put("models", models)
-                .toString(2),
-        )
-        Log.i(TAG, "Results written to ${out.absolutePath}")
+        val json = JSONObject()
+            .put("device", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+            .put("androidRelease", android.os.Build.VERSION.RELEASE)
+            .put("sdkInt", android.os.Build.VERSION.SDK_INT)
+            .put("runsPerClip", RUNS)
+            .put("models", models)
+            .toString(2)
+        logJson(json) // primary output: survives the test run uninstalling the app
+        val out = File(context.filesDir, RESULTS_FILE) // secondary: only if the app stays installed
+        out.writeText(json)
+        Log.i(TAG, "Results also written to ${out.absolutePath}")
         assertTrue("Empty transcripts: $emptyTranscripts", emptyTranscripts.isEmpty())
+    }
+
+    /** Prints [json] between BENCH_JSON_BEGIN / BENCH_JSON_END markers, in chunks short enough for logcat. */
+    private fun logJson(json: String) {
+        Log.i(TAG, "BENCH_JSON_BEGIN")
+        json.chunked(LOG_CHUNK).forEach { Log.i(TAG, it) }
+        Log.i(TAG, "BENCH_JSON_END")
     }
 
     /** Warms up once, then times [RUNS] transcribe (+ translate for non-English) runs. */
@@ -103,6 +112,17 @@ class LatencyBenchmarkTest {
             packReady.getOrPut(clip.lang) { translator.prepare(clip.lang, "en") {}.isSuccess }
         var transcript = ""
         var translationOk = translate
+        if (translationOk) {
+            // Warm-up: ML Kit client/model load must not count in the timed runs.
+            try {
+                translator.translate(whisper.transcribe(segment, clip.lang).ifBlank { clip.reference }, clip.lang, "en")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "translation skipped for ${clip.file}: ${e.message}")
+                translationOk = false
+            }
+        }
         val transcribeMs = mutableListOf<Long>()
         val translateMs = mutableListOf<Long>()
         repeat(RUNS) {
@@ -112,6 +132,8 @@ class LatencyBenchmarkTest {
             if (translationOk && text.isNotBlank()) {
                 try {
                     translateMs += measureTimeMillis { translator.translate(text, clip.lang, "en") }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "translation skipped for ${clip.file}: ${e.message}")
                     translationOk = false
@@ -197,6 +219,7 @@ class LatencyBenchmarkTest {
         const val TAG = "CaptionlyBench"
         const val RESULTS_FILE = "bench-results.json"
         const val RUNS = 3
+        const val LOG_CHUNK = 3500
         const val SAMPLE_RATE = 16_000
     }
 }

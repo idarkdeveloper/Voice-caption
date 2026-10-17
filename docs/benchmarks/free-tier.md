@@ -19,23 +19,36 @@ transcript is non-empty. It does not assert latency or error thresholds.
 ## How to run
 
 Use a mid-range phone with network access (first run downloads the ~160 MB BASE model and ML Kit
-language packs) and keep it unplugged-idle but awake, not in battery saver.
+language packs) and keep it awake, not in battery saver.
 
     export ANDROID_HOME=/opt/android-sdk
-    ./gradlew connectedDebugAndroidTest --tests '*LatencyBenchmarkTest*'
-
-To include SMALL (a larger download):
-
     ./gradlew connectedDebugAndroidTest --tests '*LatencyBenchmarkTest*' \
-      -Pandroid.testInstrumentationRunnerArguments.bench.small=true
+      -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
 
-Results appear in logcat under tag `CaptionlyBench` (`adb logcat -s CaptionlyBench`) and in
-`bench-results.json` in the app's files directory. Pull it with:
+By default Gradle uninstalls the app and test APK after the run, which deletes the app's files
+(the downloaded models and `bench-results.json`). The `leaveApksInstalledAfterRun` property keeps
+them installed so the model download survives between runs. The property name exists in AGP 8.7.3
+(this repo's version; found in its `BooleanOption` class), but it has not been exercised here:
+verify it on your device and AGP version.
+
+To include SMALL (a larger download), add
+`-Pandroid.testInstrumentationRunnerArguments.bench.small=true`.
+
+### Getting the results
+
+Primary: logcat. The full results JSON is printed under tag `CaptionlyBench` between
+`BENCH_JSON_BEGIN` and `BENCH_JSON_END`, in chunks of at most 3500 characters. Extract it right
+after the run (the logcat buffer is finite):
+
+    adb logcat -d -s CaptionlyBench | sed -n '/BENCH_JSON_BEGIN/,/BENCH_JSON_END/p'
+
+Each line carries a logcat prefix; strip it and concatenate the lines between the markers to get
+the JSON. Per-clip lines and a `SUMMARY` line per model are also logged under the same tag.
+
+Secondary: `bench-results.json` in the app's files directory, available only if the app stayed
+installed (see above):
 
     adb shell run-as com.voicecaption cat files/bench-results.json > bench-results.json
-
-If the debug app id differs from `com.voicecaption`, substitute it (the test app's target context
-is the app under test, so the file lives in the app's data directory).
 
 ## Clips and their limits
 
