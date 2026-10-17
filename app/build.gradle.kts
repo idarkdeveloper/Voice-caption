@@ -49,6 +49,8 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Pinned AAR from the sherpa-onnx GitHub release (see settings.gradle.kts); SHA-256 is
     // enforced by gradle/verification-metadata.xml.

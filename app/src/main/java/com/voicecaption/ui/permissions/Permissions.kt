@@ -20,6 +20,10 @@ object Permissions {
     fun overlaySettingsIntent(context: Context): Intent =
         Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
 
+    /** Opens this app's details page in system settings (for permissions the user denied for good). */
+    fun appDetailsIntent(context: Context): Intent =
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))
+
     /** True when notifications are allowed; implicitly true below API 33 (no runtime permission). */
     fun notificationsGranted(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
