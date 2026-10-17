@@ -238,6 +238,16 @@ class CaptureService : Service() {
         scope.launch(Dispatchers.Main) {
             pipe.errors.collect { onPipelineError(it) }
         }
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            scope.launch(Dispatchers.Main) {
+                pipe.stats.collect { st ->
+                    renderer.setDebugLine(
+                        "cut ${st.cut} drop ${st.dropped} q ${st.queueDepth} | seg ${st.lastSegmentMs}ms " +
+                            "asr ${st.lastDecodeMs}ms tr ${st.lastTranslateMs}ms lag ${st.lastLagMs}ms (max ${st.maxLagMs})",
+                    )
+                }
+            }
+        }
         // Capture loop on the audio thread (flowOn(IO) inside AudioCapture).
         scope.launch {
             var last = mon.state

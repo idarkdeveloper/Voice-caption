@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -43,6 +44,23 @@ sealed interface PipelineError {
     /** Translation of one segment failed for a reason other than a missing pack; its source caption stays. */
     data class Translator(val cause: Throwable) : PipelineError
 }
+
+/**
+ * Running counters for diagnosing latency and missed speech. All durations are milliseconds.
+ * [dropped] counts segments evicted from a full queue before recognition (speech never captioned).
+ */
+data class PipelineStats(
+    val cut: Long = 0,
+    val dropped: Long = 0,
+    val recognized: Long = 0,
+    val queueDepth: Int = 0,
+    val lastSegmentMs: Long = 0,
+    val lastDecodeMs: Long = 0,
+    val lastTranslateMs: Long = 0,
+    /** From the segment being queued (speech already over) to its caption being final. */
+    val lastLagMs: Long = 0,
+    val maxLagMs: Long = 0,
+)
 
 /**
  * Audio frames in, live captions out: VAD segmentation -> recognition -> translation -> stabilizer.
@@ -76,7 +94,7 @@ class CaptionPipeline(
     private val clock: () -> Long,
     tickMs: Long = 500,
 ) {
-    private class Job(val id: Long, val segment: SpeechSegment)
+    private class Job(val id: Long, val segment: SpeechSegment, val queuedAtMs: Long)
 
     private val _captions = MutableStateFlow<List<Caption>>(emptyList())
 
@@ -88,12 +106,26 @@ class CaptionPipeline(
     /** Non-replaying error stream; collect it before feeding audio. Slow collectors lose old errors. */
     val errors: SharedFlow<PipelineError> = _errors.asSharedFlow()
 
+    private val _stats = MutableStateFlow(PipelineStats())
+
+    /** Live counters; cheap to collect. */
+    val stats: StateFlow<PipelineStats> = _stats.asStateFlow()
+
+    private val dropCount = java.util.concurrent.atomic.AtomicLong()
+    private val pending = java.util.concurrent.atomic.AtomicInteger()
+
+    private fun bump(block: (PipelineStats) -> PipelineStats) = _stats.update(block)
+
     private val lock = Any() // guards segmenter, stopped, nextId
     private var stopped = false
     private var nextId = 0L
 
     private val mutex = Mutex() // guards stabilizer and publication to _captions
-    private val queue = Channel<Job>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    private val queue = Channel<Job>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST) {
+        pending.decrementAndGet()
+        val d = dropCount.incrementAndGet()
+        bump { it.copy(dropped = d, queueDepth = pending.get()) }
+    }
     private var notReadyReported = false // worker-only
     private var segmentsRecognized = 0L // worker-only; successful transcribe() calls, noise included
 
@@ -133,7 +165,9 @@ class CaptionPipeline(
     }
 
     private fun enqueue(segment: SpeechSegment) {
-        queue.trySend(Job(nextId++, segment)) // DROP_OLDEST: only fails once closed, which stop() guards
+        pending.incrementAndGet()
+        queue.trySend(Job(nextId++, segment, clock())) // DROP_OLDEST: only fails once closed, which stop() guards
+        bump { it.copy(cut = it.cut + 1, queueDepth = pending.get(), lastSegmentMs = segment.endMs - segment.startMs) }
     }
 
     private suspend fun update(block: CaptionStabilizer.() -> List<Caption>) {
@@ -141,7 +175,9 @@ class CaptionPipeline(
     }
 
     private suspend fun process(job: Job) {
+        pending.decrementAndGet()
         val s = settings()
+        val decodeStart = clock()
         val text = try {
             recognizer.transcribe(job.segment, s.sourceLang)
         } catch (e: CancellationException) {
@@ -151,6 +187,8 @@ class CaptionPipeline(
             return
         }
         segmentsRecognized++
+        val decodeMs = clock() - decodeStart
+        bump { it.copy(recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs) }
         if (isNoise(text)) return
         val shown = text.trim()
 
@@ -159,11 +197,14 @@ class CaptionPipeline(
                 onSourceText(job.id, shown, clock())
                 onTranslated(job.id, shown, clock())
             }
+            recordLag(job, 0)
             return
         }
         update { onSourceText(job.id, shown, clock()) }
         try {
+            val translateStart = clock()
             val translated = translator.translate(shown, s.sourceLang, s.targetLang)
+            recordLag(job, clock() - translateStart)
             notReadyReported = false
             // The source caption may have expired or been evicted while translating; a late
             // translation must not resurrect it as a source-less caption.
@@ -182,6 +223,11 @@ class CaptionPipeline(
         } catch (e: Exception) {
             _errors.tryEmit(PipelineError.Translator(e))
         }
+    }
+
+    private fun recordLag(job: Job, translateMs: Long) {
+        val lag = clock() - job.queuedAtMs
+        bump { it.copy(lastTranslateMs = translateMs, lastLagMs = lag, maxLagMs = maxOf(it.maxLagMs, lag)) }
     }
 
     private companion object {

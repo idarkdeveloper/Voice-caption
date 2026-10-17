@@ -43,6 +43,15 @@ class OverlayRenderer(context: Context) {
     private var plate: TextView? = null
     private var attached = false
     private var alpha = OverlayMath.plateAlpha(CaptionSettings().opacity)
+    private var debugLine: String? = null
+    private var lastCaptions: List<Caption> = emptyList()
+    private var lastSettings = CaptionSettings()
+
+    /** Debug builds only: a small diagnostics line under the captions. Null removes it. */
+    fun setDebugLine(text: String?) = onMain {
+        debugLine = text
+        render(lastCaptions, lastSettings)
+    }
 
     fun canDrawOverlays(): Boolean = Settings.canDrawOverlays(appContext)
 
@@ -69,7 +78,18 @@ class OverlayRenderer(context: Context) {
     fun render(captions: List<Caption>, settings: CaptionSettings) = onMain {
         val view = plate ?: return@onMain
         if (!attached) return@onMain
+        lastCaptions = captions
+        lastSettings = settings
         val lines = CaptionFormatter.lines(captions, settings.bilingual)
+        val debug = debugLine
+        if (lines.isEmpty() && debug != null) {
+            refreshGeometry(view)
+            applyStyle(view, DEBUG_SP, OverlayMath.plateAlpha(settings.opacity))
+            view.maxLines = 3
+            view.text = debug
+            view.visibility = View.VISIBLE
+            return@onMain
+        }
         if (lines.isEmpty()) {
             view.text = ""
             view.visibility = View.GONE
@@ -78,8 +98,9 @@ class OverlayRenderer(context: Context) {
         refreshGeometry(view)
         applyStyle(view, settings.fontSizeSp, OverlayMath.plateAlpha(settings.opacity))
         // Two captions' worth of lines: 2 normally, 4 when each caption is source + translation.
-        view.maxLines = if (settings.bilingual) MAX_LINES_BILINGUAL else MAX_LINES
-        view.text = buildText(captions, lines, settings.bilingual)
+        view.maxLines = (if (settings.bilingual) MAX_LINES_BILINGUAL else MAX_LINES) + (if (debug != null) 2 else 0)
+        val body = buildText(captions, lines, settings.bilingual)
+        view.text = if (debug == null) body else SpannableStringBuilder(body).append('\n').append(debug)
         view.visibility = View.VISIBLE
     }
 
@@ -235,6 +256,7 @@ class OverlayRenderer(context: Context) {
         const val PADDING_DP = 12
         const val CORNER_DP = 8
         const val DEFAULT_BOTTOM_DP = 48
+        const val DEBUG_SP = 11
         const val TOP_RESERVED_DP = 48
         const val MAX_LINES = 2
         const val MAX_LINES_BILINGUAL = 4
