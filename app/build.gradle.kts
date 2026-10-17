@@ -55,6 +55,7 @@ dependencies {
     implementation("com.k2fsa.sherpa:sherpa-onnx:${libs.versions.sherpaOnnx.get()}@aar")
 
     implementation(libs.mlkit.translate)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
