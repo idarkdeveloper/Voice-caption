@@ -199,7 +199,11 @@ class CaptureService : Service() {
             proj.registerCallback(callback, mainHandler)
 
             val vadInstance = SileroVad(this).also { vad = it }
-            val whisperInstance = WhisperLocal(File(ServiceDependencies.modelsDir(this), modelSize.dirName()), modelSize)
+            // Debug builds only (experiment): let Whisper translate straight to English.
+            val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+            val whisperTranslates = debuggable && settings.targetLang.lowercase().startsWith("en") &&
+                !settings.sourceLang.lowercase().startsWith("en")
+            val whisperInstance = WhisperLocal(File(ServiceDependencies.modelsDir(this), modelSize.dirName()), modelSize, whisperTranslates)
                 .also { whisper = it }
             val translatorInstance = MlKitTranslator(this).also { translator = it }
             val pipe = CaptionPipeline(
@@ -239,11 +243,13 @@ class CaptureService : Service() {
             pipe.errors.collect { onPipelineError(it) }
         }
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            val modelLabel = (whisper?.size ?: ModelSize.BASE).name + if (whisper?.outputLanguage != null) "+translate" else ""
             scope.launch(Dispatchers.Main) {
                 pipe.stats.collect { st ->
+                    val raw = if (st.lastRaw.isEmpty()) "(empty)" else if (st.lastNoise) "(filtered) ${st.lastRaw}" else st.lastRaw
                     renderer.setDebugLine(
-                        "cut ${st.cut} drop ${st.dropped} q ${st.queueDepth} | seg ${st.lastSegmentMs}ms " +
-                            "asr ${st.lastDecodeMs}ms tr ${st.lastTranslateMs}ms lag ${st.lastLagMs}ms (max ${st.maxLagMs})",
+                        "${modelLabel} cut ${st.cut} drop ${st.dropped} | seg ${st.lastSegmentMs}ms " +
+                            "asr ${st.lastDecodeMs}ms lag ${st.lastLagMs}ms\nraw: $raw",
                     )
                 }
             }

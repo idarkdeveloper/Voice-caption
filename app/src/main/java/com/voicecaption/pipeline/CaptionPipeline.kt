@@ -60,6 +60,9 @@ data class PipelineStats(
     /** From the segment being queued (speech already over) to its caption being final. */
     val lastLagMs: Long = 0,
     val maxLagMs: Long = 0,
+    /** What the recognizer returned for the last segment (blank = empty). */
+    val lastRaw: String = "",
+    val lastNoise: Boolean = false,
 )
 
 /**
@@ -188,11 +191,12 @@ class CaptionPipeline(
         }
         segmentsRecognized++
         val decodeMs = clock() - decodeStart
-        bump { it.copy(recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs) }
-        if (isNoise(text)) return
+        val noise = isNoise(text)
+        bump { it.copy(recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs, lastRaw = text.trim(), lastNoise = noise) }
+        if (noise) return
         val shown = text.trim()
 
-        if (sameLanguage(s.sourceLang, s.targetLang)) {
+        if (sameLanguage(recognizer.outputLanguage ?: s.sourceLang, s.targetLang)) {
             update {
                 onSourceText(job.id, shown, clock())
                 onTranslated(job.id, shown, clock())

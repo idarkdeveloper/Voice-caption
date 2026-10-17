@@ -29,7 +29,11 @@ import kotlinx.coroutines.withContext
 class WhisperLocal(
     private val modelDir: File,
     val size: ModelSize,
+    /** True: Whisper's "translate" task, which outputs English whatever language is spoken. */
+    private val translateToEnglish: Boolean = false,
 ) : SpeechRecognizer {
+    override val outputLanguage: String? get() = if (translateToEnglish) "en" else null
+
     private val lock = Any()
     private var recognizer: OfflineRecognizer? = null
     private var currentLanguage: String? = null
@@ -91,7 +95,7 @@ class WhisperLocal(
                     encoder = files.encoder,
                     decoder = files.decoder,
                     language = language,
-                    task = "transcribe",
+                    task = if (translateToEnglish) "translate" else "transcribe",
                 ),
                 tokens = files.tokens,
                 numThreads = whisperThreads(Runtime.getRuntime().availableProcessors()),

@@ -35,6 +35,7 @@ class CaptionPipelineTest {
     private val fakeVad = VoiceActivityDetector { it[0] > 0f }
 
     private class FakeRecognizer(
+        override val outputLanguage: String? = null,
         private val reply: suspend (SpeechSegment, String) -> String,
     ) : SpeechRecognizer {
         val segmentStarts = mutableListOf<Long>()
@@ -355,5 +356,17 @@ class CaptionPipelineTest {
         runCurrent()
         assertTrue(r.recognizer.segmentStarts.isEmpty())
         assertTrue(r.pipeline.captions.value.isEmpty())
+    }
+
+    @Test
+    fun recognizerThatAlreadyOutputsTargetLanguageSkipsTranslation() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "hello there" }, translator, CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        val seen = collectCaptions(r)
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(0, translator.calls)
+        assertEquals("hello there", seen.last().single().translatedText)
+        assertEquals("hello there", r.pipeline.stats.value.lastRaw)
     }
 }

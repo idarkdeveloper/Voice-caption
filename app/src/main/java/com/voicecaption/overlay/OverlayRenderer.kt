@@ -85,7 +85,7 @@ class OverlayRenderer(context: Context) {
         if (lines.isEmpty() && debug != null) {
             refreshGeometry(view)
             applyStyle(view, DEBUG_SP, OverlayMath.plateAlpha(settings.opacity))
-            view.maxLines = 3
+            view.maxLines = 5
             view.text = debug
             view.visibility = View.VISIBLE
             return@onMain
@@ -98,7 +98,7 @@ class OverlayRenderer(context: Context) {
         refreshGeometry(view)
         applyStyle(view, settings.fontSizeSp, OverlayMath.plateAlpha(settings.opacity))
         // Two captions' worth of lines: 2 normally, 4 when each caption is source + translation.
-        view.maxLines = (if (settings.bilingual) MAX_LINES_BILINGUAL else MAX_LINES) + (if (debug != null) 2 else 0)
+        view.maxLines = (if (settings.bilingual) MAX_LINES_BILINGUAL else MAX_LINES) + (if (debug != null) 4 else 0)
         val body = buildText(captions, lines, settings.bilingual)
         view.text = if (debug == null) body else SpannableStringBuilder(body).append('\n').append(debug)
         view.visibility = View.VISIBLE
