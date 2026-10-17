@@ -91,17 +91,29 @@ class CaptureService : Service() {
     private var whisper: WhisperLocal? = null
     private var translator: MlKitTranslator? = null
     private var translatorMessageShown = false
+    private var failing = false
+    private var latestStartId = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        latestStartId = startId
         when (intent?.action) {
             ACTION_STOP -> teardown()
-            ACTION_START -> if (!started && !tornDown) {
-                started = true
-                // Must be foreground before getMediaProjection (Android 14).
+            ACTION_START -> {
+                // Every startForegroundService() must be answered by startForeground(), even when
+                // this start is ignored below; and it must precede getMediaProjection (Android 14).
                 startForeground()
-                begin(intent)
+                if (tornDown) {
+                    // This instance is already shutting down. The new start (and its one-shot
+                    // projection consent) is dropped; stop this instance so Android destroys it,
+                    // and the user can start again, which then gets a fresh instance.
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelfResult(startId)
+                } else if (!started) {
+                    started = true
+                    begin(intent)
+                } // else: a run (or its error linger) is in progress; the extra start is ignored.
             }
             else -> if (!started) stopSelf()
         }
@@ -236,7 +248,7 @@ class CaptureService : Service() {
                     }
                     if (state == ServiceState.STOPPED) audio.stop() else pipe.onFrame(frame)
                 }
-                onMain { teardown() } // capture ended without error (stop requested)
+                onMain { if (!failing) teardown() } // capture ended without error (stop requested)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -250,14 +262,14 @@ class CaptureService : Service() {
         when (state) {
             ServiceState.BLOCKED -> overlay?.showMessage(getString(R.string.capture_blocked))
             ServiceState.RUNNING -> pipeline?.let { overlay?.render(it.captions.value, ServiceDependencies.settings()) }
-            ServiceState.STOPPED -> teardown()
+            ServiceState.STOPPED -> if (!failing) teardown() // fail() owns the delayed teardown
             else -> Unit
         }
     }
 
     /** Main thread: an externally triggered event (projection stopped). */
     private fun onEvent(event: ServiceEvent) {
-        if (monitor?.dispatch(event) == ServiceState.STOPPED) teardown()
+        if (monitor?.dispatch(event) == ServiceState.STOPPED && !failing) teardown()
     }
 
     private fun showTranslatorMissing() {
@@ -271,7 +283,8 @@ class CaptureService : Service() {
      * capture right away and tears everything down after [MESSAGE_LINGER_MS] so it can be read.
      */
     private fun fail(messageRes: Int) {
-        if (tornDown) return
+        if (tornDown || failing) return
+        failing = true
         val text = getString(messageRes)
         val renderer = overlay
         monitor?.dispatch(ServiceEvent.UserStop)
@@ -288,25 +301,37 @@ class CaptureService : Service() {
         }
     }
 
-    /** Main thread. Idempotent: releases everything in dependency order, then stops the service. */
+    /**
+     * Main thread. Idempotent: releases everything in dependency order, then stops the service.
+     *
+     * The native closes (Whisper, VAD, translator) run on a dedicated thread, never on main:
+     * `WhisperLocal.close()` takes the lock a running native decode holds, and a decode cannot be
+     * interrupted, so closing inline could freeze the UI for a whole segment (up to ~30 s) or
+     * trigger an ANR. The thread is started after [CaptionPipeline.stop] and captures only the
+     * three objects it closes (not the service), so it finishes after the service is gone; none of
+     * the closes touch the main thread or the overlay. Main-thread work (overlay, foreground,
+     * stopSelf) stays inline and always runs, even if an earlier step throws.
+     */
     private fun teardown() {
         if (tornDown) return
         tornDown = true
-        monitor?.dispatch(ServiceEvent.UserStop)
-        capture?.stop()
-        // Flush first, then close the models: pipeline.stop() waits out any in-flight onFrame.
-        pipeline?.stop()
-        scope.cancel()
-        projection?.let { p ->
-            projectionCallback?.let { runCatching { p.unregisterCallback(it) } }
-            runCatching { p.stop() }
+        try {
+            monitor?.dispatch(ServiceEvent.UserStop)
+            capture?.stop()
+            // Flush first, then close the models: pipeline.stop() waits out any in-flight onFrame.
+            runCatching { pipeline?.stop() }
+            scope.cancel()
+            projection?.let { p ->
+                projectionCallback?.let { runCatching { p.unregisterCallback(it) } }
+                runCatching { p.stop() }
+            }
+            closeNativeOffMain(whisper, vad, translator)
+            overlay?.hide()
+        } finally {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            // Only stops the service if no newer start arrived since (that one is handled above).
+            stopSelfResult(latestStartId)
         }
-        runCatching { whisper?.close() }
-        runCatching { vad?.close() }
-        runCatching { translator?.close() }
-        overlay?.hide()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
     }
 
     /** The size to run: the selector's choice if installed, else the preferred one, else null. */
@@ -316,7 +341,7 @@ class CaptureService : Service() {
         val chosen = ModelSelector.choose(
             preferred,
             power.currentThermalStatus,
-            battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY),
+            normalizeBatteryPercent(battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)),
         )
         val models = ModelManager(ServiceDependencies.modelsDir(this), HttpUrlConnectionDownloader())
         return listOf(chosen, preferred).firstOrNull { models.isInstalled(it) }
@@ -339,6 +364,15 @@ class CaptureService : Service() {
     private fun Intent.getParcelableExtraCompat(): Intent? = getParcelableExtra(EXTRA_DATA)
 
     companion object {
+        /** Closes the native resources in order, each independently, on a non-daemon background thread. */
+        private fun closeNativeOffMain(whisper: WhisperLocal?, vad: SileroVad?, translator: MlKitTranslator?) {
+            Thread({
+                runCatching { whisper?.close() }
+                runCatching { vad?.close() }
+                runCatching { translator?.close() }
+            }, "capture-native-close").start()
+        }
+
         private const val ACTION_START = "com.voicecaption.action.START_CAPTURE"
         private const val ACTION_STOP = "com.voicecaption.action.STOP_CAPTURE"
         private const val EXTRA_RESULT_CODE = "resultCode"
