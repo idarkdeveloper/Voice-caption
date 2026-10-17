@@ -184,7 +184,7 @@ class OverlayRenderer(context: Context) {
         val sb = SpannableStringBuilder()
         var i = 0
         for (c in captions) {
-            val twoLines = bilingual && c.translatedText != null
+            val twoLines = CaptionFormatter.showsBoth(c, bilingual)
             val count = if (twoLines) 2 else 1
             for (k in 0 until count) {
                 if (i >= lines.size) break

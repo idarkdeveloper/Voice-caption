@@ -31,4 +31,10 @@ class CaptionFormatterTest {
             CaptionFormatter.lines(listOf(final, pending), bilingual = false),
         )
     }
+
+    @Test
+    fun bilingualShowsIdenticalSourceAndTranslationOnce() {
+        val same = Caption(3, "Hello there.", "hello there.", true, 0)
+        assertEquals(listOf("hello there."), CaptionFormatter.lines(listOf(same), bilingual = true))
+    }
 }

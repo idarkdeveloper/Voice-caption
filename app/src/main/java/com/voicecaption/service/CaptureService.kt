@@ -199,9 +199,9 @@ class CaptureService : Service() {
             proj.registerCallback(callback, mainHandler)
 
             val vadInstance = SileroVad(this).also { vad = it }
-            // Debug builds only (experiment): let Whisper translate straight to English.
-            val debuggable = applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
-            val whisperTranslates = debuggable && settings.targetLang.lowercase().startsWith("en") &&
+            // English captions for a non-English film: Whisper translates the speech directly, which
+            // measured clearly more accurate than transcribing and then translating with ML Kit.
+            val whisperTranslates = settings.targetLang.lowercase().startsWith("en") &&
                 !settings.sourceLang.lowercase().startsWith("en")
             val whisperInstance = WhisperLocal(File(ServiceDependencies.modelsDir(this), modelSize.dirName()), modelSize, whisperTranslates)
                 .also { whisper = it }
@@ -221,7 +221,7 @@ class CaptureService : Service() {
             launchCollectors(pipe, audio, mon, renderer)
             CaptureStatus.set(true)
             scope.launch {
-                if (!translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
+                if (!whisperTranslates && !translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
