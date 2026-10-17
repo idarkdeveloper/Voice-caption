@@ -278,6 +278,10 @@ class CaptureService : Service() {
             scope.launch(Dispatchers.Main) {
                 pipe.stats.collect { st ->
                     val raw = if (st.lastRaw.isEmpty()) "(empty)" else if (st.lastNoise) "(filtered) ${st.lastRaw}" else st.lastRaw
+                    if (!ServiceDependencies.settings().showDiagnostics) {
+                        renderer.setDebugLine(null)
+                        return@collect
+                    }
                     renderer.setDebugLine(
                         "${modelLabel}${(whisper as? AutoRecognizer)?.let { " ${it.engine}" }.orEmpty()} lang ${st.lastLang.ifEmpty { "?" }} " +
                             "cut ${st.cut} drop ${st.dropped} | seg ${st.lastSegmentMs}ms " +

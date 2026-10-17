@@ -104,4 +104,17 @@ class SettingsRepositoryTest {
         assertEquals(0xFFFFE45C.toInt(), got.textColor)
         assertEquals(0xFF0B1A33.toInt(), got.plateColor)
     }
+
+    @Test
+    fun diagnosticsAreOffByDefaultAndPersisted() = runTest {
+        val file = tmp.newFile("diag.preferences_pb")
+        val scope = CoroutineScope(Job())
+        val repo = SettingsRepository(store(scope, file))
+        assertEquals(false, repo.current().showDiagnostics)
+        repo.update { it.copy(showDiagnostics = true) }
+        scope.cancel()
+        scope.coroutineContext[Job]!!.join()
+
+        assertEquals(true, SettingsRepository(store(backgroundScope, file)).current().showDiagnostics)
+    }
 }

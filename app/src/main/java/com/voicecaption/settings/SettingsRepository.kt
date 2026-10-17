@@ -27,6 +27,7 @@ internal object SettingsKeys {
     val bilingual = booleanPreferencesKey("bilingual")
     val modelSize = stringPreferencesKey("model_size")
     val autoModel = booleanPreferencesKey("auto_model")
+    val showDiagnostics = booleanPreferencesKey("show_diagnostics")
     val textColor = intPreferencesKey("text_color")
     val plateColor = intPreferencesKey("plate_color")
 }
@@ -64,6 +65,7 @@ private fun Preferences.toSettings(): CaptionSettings {
             autoModel = this[SettingsKeys.autoModel] ?: d.autoModel,
             textColor = this[SettingsKeys.textColor] ?: d.textColor,
             plateColor = this[SettingsKeys.plateColor] ?: d.plateColor,
+            showDiagnostics = this[SettingsKeys.showDiagnostics] ?: d.showDiagnostics,
         ),
     )
 }
@@ -91,6 +93,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             prefs[SettingsKeys.autoModel] = next.autoModel
             prefs[SettingsKeys.textColor] = next.textColor
             prefs[SettingsKeys.plateColor] = next.plateColor
+            prefs[SettingsKeys.showDiagnostics] = next.showDiagnostics
         }
     }
 }

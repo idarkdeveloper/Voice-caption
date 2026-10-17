@@ -44,6 +44,8 @@ data class CaptionSettings(
     val textColor: Int = ColorMath.WHITE,
     /** Caption plate colour (opaque RGB); its transparency is [opacity]. */
     val plateColor: Int = ColorMath.BLACK,
+    /** Debug builds only: show the speed and recognition stats line inside the caption box. */
+    val showDiagnostics: Boolean = false,
 ) {
     /** The model that will really run (and be downloaded) for these settings. */
     val activeModel: ModelSize get() = ModelChoice.resolve(autoModel, modelSize, sourceLang)

@@ -167,6 +167,7 @@ fun AppRoot(vm: MainViewModel) {
                 onTargetLanguage = vm::onTargetLanguage,
                 onSwapLanguages = swapLanguages,
                 onDeleteModel = vm::deleteModel,
+                onShowDiagnostics = vm::onShowDiagnostics,
                 onDownloadAllLanguages = vm::downloadAllLanguages,
                 onRetryDownload = vm::retryDownloads,
                 onCancelDownload = vm::cancelDownloads,

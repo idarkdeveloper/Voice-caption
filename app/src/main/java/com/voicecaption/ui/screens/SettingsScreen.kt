@@ -31,6 +31,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.content.pm.ApplicationInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
@@ -76,6 +78,7 @@ class SettingsActions(
     val onTargetLanguage: (String) -> Unit,
     val onSwapLanguages: () -> Unit,
     val onDeleteModel: (ModelSize) -> Unit,
+    val onShowDiagnostics: (Boolean) -> Unit,
     val onDownloadAllLanguages: () -> Unit,
     val onRetryDownload: () -> Unit,
     val onCancelDownload: () -> Unit,
@@ -240,6 +243,27 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                 onRetry = actions.onRetryDownload,
                 onCancel = actions.onCancelDownload,
             )
+
+            if (LocalContext.current.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = Spacing.Target)
+                        .toggleable(
+                            value = settings.showDiagnostics,
+                            role = Role.Switch,
+                            onValueChange = actions.onShowDiagnostics,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(R.string.settings_diagnostics),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(checked = settings.showDiagnostics, onCheckedChange = null)
+                }
+            }
 
             StorageSection(
                 installed = state.installedModels,

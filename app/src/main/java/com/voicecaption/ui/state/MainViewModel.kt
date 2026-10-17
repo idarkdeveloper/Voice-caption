@@ -112,6 +112,9 @@ class MainViewModel(
     /** Sets the caption plate colour (opaque RGB). */
     fun onPlateColor(color: Int) = update { it.copy(plateColor = color) }
 
+    /** Shows or hides the diagnostics line in the caption box (debug builds). */
+    fun onShowDiagnostics(enabled: Boolean) = update { it.copy(showDiagnostics = enabled) }
+
     /** Lets the app pick the speech model from the spoken language. */
     fun onAutoModel() = update { it.copy(autoModel = true) }
 

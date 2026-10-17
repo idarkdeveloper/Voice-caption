@@ -124,6 +124,7 @@
     <string name="settings_offline_languages_action">Download all languages (about 1.7 GB)</string>
     <string name="settings_offline_languages_confirm_title">Download all languages?</string>
     <string name="settings_offline_languages_confirm_message">This downloads about 58 language packs, around 1.7 GB in total, and can use mobile data. Wi-Fi is recommended. You can cancel at any time and continue later.</string>
+    <string name="settings_diagnostics">Show speed and recognition stats in captions (test builds)</string>
     <string name="settings_storage">Storage</string>
     <string name="settings_storage_installed">Installed, about %1$d MB</string>
     <string name="settings_storage_not_installed">Not installed</string>
