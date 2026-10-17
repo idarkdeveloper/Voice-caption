@@ -84,8 +84,10 @@ data class PipelineStats(
  * worker; [CancellationException] is rethrown and not reported. Settings are read via [settings]
  * once per segment, so a language change applies from the next segment.
  *
- * Caption ids are a monotonically increasing Long per segment cut by the segmenter (ids of
- * segments dropped from a full channel are simply never shown).
+ * Caption ids are the segmenter's utterance numbers, increasing per segment (ids of segments
+ * dropped from a full channel are simply never shown). A partial snapshot of a segment still being
+ * spoken shares its id with the final segment, so the final text replaces the provisional one in
+ * place; only the newest partial of an utterance is ever decoded.
  */
 class CaptionPipeline(
     private val segmenter: VadSegmenter,
@@ -97,7 +99,7 @@ class CaptionPipeline(
     private val clock: () -> Long,
     tickMs: Long = 500,
 ) {
-    private class Job(val id: Long, val segment: SpeechSegment, val queuedAtMs: Long)
+    private class Job(val id: Long, val seq: Long, val segment: SpeechSegment, val queuedAtMs: Long)
 
     private val _captions = MutableStateFlow<List<Caption>>(emptyList())
 
@@ -124,11 +126,15 @@ class CaptionPipeline(
     private var nextId = 0L
 
     private val mutex = Mutex() // guards stabilizer and publication to _captions
-    private val queue = Channel<Job>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST) {
+    private val queue = Channel<Job>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST) { job ->
         pending.decrementAndGet()
-        val d = dropCount.incrementAndGet()
-        bump { it.copy(dropped = d, queueDepth = pending.get()) }
+        if (!job.segment.partial) { // a dropped partial costs nothing: its final supersedes it
+            newestSeq.remove(job.id)
+            val d = dropCount.incrementAndGet()
+            bump { it.copy(dropped = d, queueDepth = pending.get()) }
+        }
     }
+    private val newestSeq = java.util.concurrent.ConcurrentHashMap<Long, Long>() // utterance -> newest queued seq
     private var notReadyReported = false // worker-only
     private var segmentsRecognized = 0L // worker-only; successful transcribe() calls, noise included
 
@@ -169,8 +175,12 @@ class CaptionPipeline(
 
     private fun enqueue(segment: SpeechSegment) {
         pending.incrementAndGet()
-        queue.trySend(Job(nextId++, segment, clock())) // DROP_OLDEST: only fails once closed, which stop() guards
-        bump { it.copy(cut = it.cut + 1, queueDepth = pending.get(), lastSegmentMs = segment.endMs - segment.startMs) }
+        val seq = nextId++
+        newestSeq[segment.utterance] = seq
+        queue.trySend(Job(segment.utterance, seq, segment, clock())) // DROP_OLDEST: only fails once closed, which stop() guards
+        if (!segment.partial) {
+            bump { it.copy(cut = it.cut + 1, queueDepth = pending.get(), lastSegmentMs = segment.endMs - segment.startMs) }
+        }
     }
 
     private suspend fun update(block: CaptionStabilizer.() -> List<Caption>) {
@@ -179,6 +189,9 @@ class CaptionPipeline(
 
     private suspend fun process(job: Job) {
         pending.decrementAndGet()
+        // A partial is only worth decoding while it is still the newest snapshot of its utterance.
+        if (job.segment.partial && newestSeq[job.id] != job.seq) return
+        if (!job.segment.partial) newestSeq.remove(job.id)
         val s = settings()
         val decodeStart = clock()
         val text = try {

@@ -36,6 +36,7 @@ import com.voicecaption.pipeline.CaptionPipeline
 import com.voicecaption.pipeline.PipelineError
 import com.voicecaption.translate.MlKitTranslator
 import com.voicecaption.vad.SileroVad
+import com.voicecaption.vad.VadConfig
 import com.voicecaption.vad.VadSegmenter
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -207,7 +208,7 @@ class CaptureService : Service() {
                 .also { whisper = it }
             val translatorInstance = MlKitTranslator(this).also { translator = it }
             val pipe = CaptionPipeline(
-                segmenter = VadSegmenter(vadInstance),
+                segmenter = VadSegmenter(vadInstance, VadConfig(partialEveryMs = PARTIAL_EVERY_MS)),
                 recognizer = whisperInstance,
                 translator = translatorInstance,
                 stabilizer = CaptionStabilizer(),
@@ -432,6 +433,9 @@ class CaptureService : Service() {
     private fun Intent.getParcelableExtraCompat(): Intent? = getParcelableExtra(EXTRA_DATA)
 
     companion object {
+        /** While someone is speaking, show a provisional caption refreshed this often. */
+        private const val PARTIAL_EVERY_MS = 1500
+
         /** Closes the native resources in order, each independently, on a non-daemon background thread. */
         private fun closeNativeOffMain(whisper: WhisperLocal?, vad: SileroVad?, translator: MlKitTranslator?) {
             Thread({

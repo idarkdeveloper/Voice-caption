@@ -129,4 +129,34 @@ class VadSegmenterTest {
         assertTrue(out.isEmpty())
         assertNull(segmenter.flush())
     }
+
+    @Test
+    fun partialsAreEmittedWhileSpeakingAndShareTheFinalsUtterance() {
+        val sc = script(true to 100, false to 13)
+        val segmenter = VadSegmenter(FakeVad(sc), VadConfig(partialEveryMs = 1000))
+        val out = mutableListOf<SpeechSegment>()
+        sc.indices.forEach { i ->
+            val samples = FloatArray(frameSamples).also { it[0] = i.toFloat() }
+            out += segmenter.push(PcmFrame(samples, i * frameMs))
+        }
+        val partials = out.filter { it.partial }
+        val finals = out.filter { !it.partial }
+        assertEquals(1, finals.size)
+        assertTrue(partials.size >= 2)
+        assertTrue(partials.all { it.utterance == finals[0].utterance })
+        assertTrue(partials.zipWithNext().all { (a, b) -> b.endMs > a.endMs })
+        assertTrue(partials.all { it.endMs <= finals[0].endMs })
+    }
+
+    @Test
+    fun noPartialsByDefault() {
+        val (_, out) = run(script(true to 100, false to 13))
+        assertTrue(out.none { it.partial })
+    }
+
+    @Test
+    fun nextSegmentGetsNewUtteranceNumber() {
+        val (_, out) = run(script(true to 30, false to 13, true to 30, false to 13))
+        assertEquals(listOf(0L, 1L), out.map { it.utterance })
+    }
 }

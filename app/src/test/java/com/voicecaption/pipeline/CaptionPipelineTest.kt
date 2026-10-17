@@ -8,6 +8,7 @@ import com.voicecaption.core.PcmFrame
 import com.voicecaption.core.SpeechSegment
 import com.voicecaption.translate.Translator
 import com.voicecaption.translate.TranslatorNotReadyException
+import com.voicecaption.vad.VadConfig
 import com.voicecaption.vad.VadSegmenter
 import com.voicecaption.vad.VoiceActivityDetector
 import kotlinx.coroutines.CoroutineScope
@@ -70,9 +71,10 @@ class CaptionPipelineTest {
         val translator: FakeTranslator,
         val clock: () -> Long,
         var settings: CaptionSettings = CaptionSettings(sourceLang = "es", targetLang = "en"),
+        vadConfig: VadConfig = VadConfig(),
     ) {
         val pipeline = CaptionPipeline(
-            segmenter = VadSegmenter(fakeVad),
+            segmenter = VadSegmenter(fakeVad, vadConfig),
             recognizer = recognizer,
             translator = translator,
             stabilizer = CaptionStabilizer(),
@@ -87,6 +89,8 @@ class CaptionPipelineTest {
             pipeline.onFrame(PcmFrame(samples, frameIndex++ * frameMs))
         }
 
+        fun feedSilence(frames: Int = 13) = repeat(frames) { frame(false) }
+
         /** 10 speech frames (320 ms) and, if [close], 13 silent frames that close the segment. */
         fun feedSpeech(close: Boolean = true) {
             repeat(10) { frame(true) }
@@ -98,7 +102,8 @@ class CaptionPipelineTest {
         recognizer: FakeRecognizer,
         translator: FakeTranslator = FakeTranslator(),
         settings: CaptionSettings = CaptionSettings(sourceLang = "es", targetLang = "en"),
-    ) = Rig(backgroundScope, recognizer, translator, { currentTime }, settings)
+        vadConfig: VadConfig = VadConfig(),
+    ) = Rig(backgroundScope, recognizer, translator, { currentTime }, settings, vadConfig)
 
     private fun TestScope.collectCaptions(rig: Rig): MutableList<List<Caption>> {
         val seen = mutableListOf<List<Caption>>()
@@ -368,5 +373,25 @@ class CaptionPipelineTest {
         assertEquals(0, translator.calls)
         assertEquals("hello there", seen.last().single().translatedText)
         assertEquals("hello there", r.pipeline.stats.value.lastRaw)
+    }
+
+    @Test
+    fun finalSegmentReplacesItsPartialInPlace() = runTest {
+        val r = rig(
+            FakeRecognizer { seg, _ -> if (seg.partial) "partial text" else "final text" },
+            vadConfig = VadConfig(partialEveryMs = 500),
+        )
+        repeat(6) { r.feedSpeech(close = false) } // 60 speech frames, still speaking
+        runCurrent()
+        val provisional = r.pipeline.captions.value
+        assertEquals(1, provisional.size)
+        assertEquals("partial text", provisional[0].sourceText)
+
+        r.feedSilence() // the sentence ends: the final segment closes
+        runCurrent()
+        val shown = r.pipeline.captions.value
+        assertEquals(1, shown.size)
+        assertEquals(provisional[0].id, shown[0].id)
+        assertEquals("T(final text)", shown[0].translatedText)
     }
 }

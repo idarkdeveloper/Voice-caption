@@ -9,6 +9,10 @@ data class VadConfig(
     val minSpeechMs: Int = 300,
     val maxSegmentMs: Int = 6000,
     val overlapMs: Int = 500,
+    /** While speech continues, emit a partial snapshot of the open segment every this many ms; 0 = off. */
+    val partialEveryMs: Int = 0,
+    /** A partial is only emitted once the open segment holds at least this much speech. */
+    val partialMinSpeechMs: Int = 600,
 )
 
 /**
@@ -43,6 +47,8 @@ class VadSegmenter(
     private var silenceFrames = 0
     private var newFrames = 0 // frames added since segment start, excluding carried overlap
     private var continuation = false
+    private var utterance = -1L
+    private var nextPartialMs = 0
 
     private val samplesPerMs = SAMPLE_RATE / 1000
     private val maxSamples = config.maxSegmentMs * samplesPerMs
@@ -53,6 +59,8 @@ class VadSegmenter(
         if (!inSpeech) {
             if (!speech) return emptyList()
             inSpeech = true
+            utterance++
+            nextPartialMs = config.partialEveryMs
             startMs = frame.timestampMs
             continuation = false
             speechFrames = 0
@@ -77,6 +85,11 @@ class VadSegmenter(
         } else if (size >= maxSamples) {
             emitIfValid()?.let(out::add)
             carryOverlap()
+        } else if (config.partialEveryMs > 0 && speech && newFrames * config.frameMs >= nextPartialMs) {
+            nextPartialMs += config.partialEveryMs
+            if (speechFrames * config.frameMs >= config.partialMinSpeechMs) {
+                out.add(SpeechSegment(buffer.copyOf(size), startMs, endMs, utterance, partial = true))
+            }
         }
         return out
     }
@@ -96,7 +109,7 @@ class VadSegmenter(
         } else if (speechFrames * config.frameMs < config.minSpeechMs) {
             return null
         }
-        return SpeechSegment(buffer.copyOf(size), startMs, endMs)
+        return SpeechSegment(buffer.copyOf(size), startMs, endMs, utterance)
     }
 
     private fun carryOverlap() {
@@ -105,6 +118,8 @@ class VadSegmenter(
         size = keep
         startMs = endMs - keep / samplesPerMs
         continuation = true
+        utterance++
+        nextPartialMs = config.partialEveryMs
         speechFrames = 0
         newFrames = 0
         // silenceFrames is kept: a cut during hangover must still close on time.
