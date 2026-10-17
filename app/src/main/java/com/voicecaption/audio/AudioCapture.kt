@@ -8,6 +8,7 @@ import android.media.projection.MediaProjection
 import com.voicecaption.core.PcmFrame
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -21,7 +22,8 @@ import kotlinx.coroutines.isActive
  * [Dispatchers.IO]; the record is stopped and released when the collector is cancelled, [stop] is
  * called, or the loop fails. Timestamps are milliseconds since the capture started, in 32 ms
  * steps (see [FrameChunker]). It fails with [IllegalStateException] if RECORD_AUDIO is not
- * granted, the record cannot be initialized, or a read fails.
+ * granted, the record cannot be initialized, a read fails, or
+ * [ZeroReadCounter.DEFAULT_LIMIT] reads in a row return no data.
  *
  * The caller must have registered a [MediaProjection.Callback] on [projection] before collecting
  * (required on Android 14+), and must hold RECORD_AUDIO (checked by the service up front; a
@@ -39,11 +41,18 @@ class AudioCapture(private val projection: MediaProjection) {
             check(record.recordingState == AudioRecord.RECORDSTATE_RECORDING) { "Audio capture did not start" }
             val chunker = FrameChunker(FRAME_SAMPLES, SAMPLE_RATE)
             val buffer = ShortArray(FRAME_SAMPLES)
+            val zeroReads = ZeroReadCounter()
             while (!stopped && currentCoroutineContext().isActive) {
                 val n = record.read(buffer, 0, buffer.size)
                 if (stopped) break
                 check(n >= 0) { "Audio capture read failed (code $n)" }
-                if (n == 0) continue
+                if (n == 0) {
+                    // A dead record can return 0 forever; give up instead of spinning on the CPU.
+                    check(!zeroReads.record(n)) { "Audio capture returned no data" }
+                    delay(ZERO_READ_PAUSE_MS)
+                    continue
+                }
+                zeroReads.record(n)
                 for (frame in chunker.push(buffer, n)) emit(frame)
             }
         } finally {
@@ -98,5 +107,6 @@ class AudioCapture(private val projection: MediaProjection) {
         const val FRAME_SAMPLES = 512
         const val BYTES_PER_SAMPLE = 2
         const val BUFFER_FRAMES = 8
+        const val ZERO_READ_PAUSE_MS = 5L
     }
 }

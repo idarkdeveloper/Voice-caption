@@ -33,8 +33,12 @@ sealed interface PipelineError {
      */
     data object TranslatorNotReady : PipelineError
 
-    /** Speech recognition of one segment failed; that segment is skipped. */
-    data class Recognizer(val cause: Throwable) : PipelineError
+    /**
+     * Speech recognition of one segment failed; that segment is skipped. [segmentsRecognizedBefore]
+     * is how many segments the recognizer had handled successfully when this one failed; it is the
+     * success signal for counting consecutive failures (it changes only after a success).
+     */
+    data class Recognizer(val cause: Throwable, val segmentsRecognizedBefore: Long = 0) : PipelineError
 
     /** Translation of one segment failed for a reason other than a missing pack; its source caption stays. */
     data class Translator(val cause: Throwable) : PipelineError
@@ -91,6 +95,7 @@ class CaptionPipeline(
     private val mutex = Mutex() // guards stabilizer and publication to _captions
     private val queue = Channel<Job>(capacity = 4, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var notReadyReported = false // worker-only
+    private var segmentsRecognized = 0L // worker-only; successful transcribe() calls, noise included
 
     private val ticker = scope.launch {
         while (isActive) {
@@ -142,9 +147,10 @@ class CaptionPipeline(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _errors.tryEmit(PipelineError.Recognizer(e))
+            _errors.tryEmit(PipelineError.Recognizer(e, segmentsRecognized))
             return
         }
+        segmentsRecognized++
         if (isNoise(text)) return
         val shown = text.trim()
 

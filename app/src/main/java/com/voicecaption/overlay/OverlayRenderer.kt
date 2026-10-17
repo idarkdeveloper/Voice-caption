@@ -51,6 +51,7 @@ class OverlayRenderer(context: Context) {
         if (attached || !canDrawOverlays()) return@onMain
         val view = plate ?: createPlate().also { plate = it }
         view.visibility = View.GONE
+        refreshGeometry(view)
         try {
             windowManager.addView(view, layoutParams())
             attached = true
@@ -74,6 +75,7 @@ class OverlayRenderer(context: Context) {
             view.visibility = View.GONE
             return@onMain
         }
+        refreshGeometry(view)
         applyStyle(view, settings.fontSizeSp, OverlayMath.plateAlpha(settings.opacity))
         // Two captions' worth of lines: 2 normally, 4 when each caption is source + translation.
         view.maxLines = if (settings.bilingual) MAX_LINES_BILINGUAL else MAX_LINES
@@ -85,6 +87,7 @@ class OverlayRenderer(context: Context) {
     fun showMessage(text: String) = onMain {
         val view = plate ?: return@onMain
         if (!attached) return@onMain
+        refreshGeometry(view)
         view.maxLines = MAX_LINES_BILINGUAL
         view.text = text
         view.visibility = View.VISIBLE
@@ -107,6 +110,27 @@ class OverlayRenderer(context: Context) {
         if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post { block() }
     }
 
+    /**
+     * Re-derives everything that depends on the CURRENT screen size (it changes on rotation and
+     * folding): the plate's max width, and the dragged vertical offset, re-clamped to the screen
+     * height. Called before every show/render so a stale landscape width never leaks into portrait.
+     */
+    private fun refreshGeometry(view: TextView) {
+        view.maxWidth = OverlayMath.maxPlateWidthPx(appContext.resources.displayMetrics.widthPixels)
+        val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
+        if (!attached) return
+        val clamped = clampedOffset(view, lp.y)
+        if (clamped != lp.y) moveTo(view, clamped)
+    }
+
+    private fun clampedOffset(view: View, requested: Int): Int {
+        val screenH = appContext.resources.displayMetrics.heightPixels
+        // Keep clear of the status bar area at the top; y=0 is already above the gesture/nav area
+        // because overlay windows are laid out inside the system bars.
+        val max = screenH - view.height - dp(TOP_RESERVED_DP)
+        return OverlayMath.clampOffsetY(requested, 0, max)
+    }
+
     private fun dp(v: Int): Int = (v * density).toInt()
 
     private fun createPlate(): TextView {
@@ -116,7 +140,7 @@ class OverlayRenderer(context: Context) {
         view.ellipsize = TextUtils.TruncateAt.END
         view.maxLines = MAX_LINES
         view.setPadding(dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP), dp(PADDING_DP))
-        view.maxWidth = OverlayMath.maxPlateWidthPx(appContext.resources.displayMetrics.widthPixels)
+        refreshGeometry(view)
         view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         view.setOnTouchListener(DragListener(appContext) { requested -> moveTo(view, requested) })
         applyStyle(view, CaptionSettings().fontSizeSp, alpha)
@@ -169,11 +193,7 @@ class OverlayRenderer(context: Context) {
     private fun moveTo(view: View, requested: Int) {
         if (!attached) return
         val lp = view.layoutParams as? WindowManager.LayoutParams ?: return
-        val screenH = appContext.resources.displayMetrics.heightPixels
-        // Keep clear of the status bar area at the top; y=0 is already above the gesture/nav area
-        // because overlay windows are laid out inside the system bars.
-        val max = screenH - view.height - dp(TOP_RESERVED_DP)
-        lp.y = OverlayMath.clampOffsetY(requested, 0, max)
+        lp.y = clampedOffset(view, requested)
         bottomOffsetPx = lp.y
         try {
             windowManager.updateViewLayout(view, lp)

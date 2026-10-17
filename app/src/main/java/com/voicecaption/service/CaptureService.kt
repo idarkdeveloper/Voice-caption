@@ -90,7 +90,8 @@ class CaptureService : Service() {
     private var vad: SileroVad? = null
     private var whisper: WhisperLocal? = null
     private var translator: MlKitTranslator? = null
-    private var translatorMessageShown = false
+    private var oneTimeMessageShown = false
+    private val recognizerFailures = RecognizerFailureTracker()
     private var failing = false
     private var latestStartId = 0
 
@@ -216,7 +217,7 @@ class CaptureService : Service() {
             launchCollectors(pipe, audio, mon, renderer)
             CaptureStatus.set(true)
             scope.launch {
-                if (!translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showTranslatorMissing() }
+                if (!translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -235,7 +236,7 @@ class CaptureService : Service() {
             pipe.captions.collect { renderer.render(it, ServiceDependencies.settings()) }
         }
         scope.launch(Dispatchers.Main) {
-            pipe.errors.collect { if (it is PipelineError.TranslatorNotReady) showTranslatorMissing() }
+            pipe.errors.collect { onPipelineError(it) }
         }
         // Capture loop on the audio thread (flowOn(IO) inside AudioCapture).
         scope.launch {
@@ -253,10 +254,51 @@ class CaptureService : Service() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                onMain { fail(R.string.capture_error_unexpected) }
+                onMain { onCaptureFailed() }
             }
         }
     }
+
+    /**
+     * Main thread: reacts to a pipeline error. Repeated recognizer failures end the run (otherwise
+     * nothing would ever appear while the UI says "listening"); a translator failure keeps the
+     * source captions, so it only shows a one-time message.
+     */
+    private fun onPipelineError(error: PipelineError) {
+        if (recognizerFailures.onError(error)) {
+            fail(R.string.capture_error_recognizer)
+            return
+        }
+        when (error) {
+            PipelineError.TranslatorNotReady -> showOneTimeMessage(R.string.capture_translation_missing)
+            is PipelineError.Translator -> showOneTimeMessage(R.string.capture_translation_failed)
+            is PipelineError.Recognizer -> Unit
+        }
+    }
+
+    /**
+     * Main thread: the capture loop failed. A read error can race with the system's "stop sharing"
+     * callback, so a failure is only reported if, after a short grace period, the projection has
+     * not stopped the run meanwhile ([captureFailureAction]). Teardown stays exactly-once.
+     */
+    private fun onCaptureFailed() {
+        if (failing) return
+        when (captureFailureAction(currentState(), tornDown)) {
+            CaptureFailureAction.TEARDOWN -> teardown()
+            CaptureFailureAction.IGNORE -> Unit
+            CaptureFailureAction.FAIL -> scope.launch(Dispatchers.Main) {
+                delay(PROJECTION_GRACE_MS)
+                if (failing) return@launch
+                when (captureFailureAction(currentState(), tornDown)) {
+                    CaptureFailureAction.TEARDOWN -> teardown()
+                    CaptureFailureAction.IGNORE -> Unit
+                    CaptureFailureAction.FAIL -> fail(R.string.capture_error_unexpected)
+                }
+            }
+        }
+    }
+
+    private fun currentState(): ServiceState = monitor?.state ?: ServiceState.STOPPED
 
     /** Main thread: reacts to a state the monitor reached while processing frames. */
     private fun onState(state: ServiceState) {
@@ -273,10 +315,11 @@ class CaptureService : Service() {
         if (monitor?.dispatch(event) == ServiceState.STOPPED && !failing) teardown()
     }
 
-    private fun showTranslatorMissing() {
-        if (translatorMessageShown || tornDown) return
-        translatorMessageShown = true
-        overlay?.showMessage(getString(R.string.capture_translation_missing))
+    /** Shows [messageRes] on the overlay the first time only; later calls (any message) are ignored. */
+    private fun showOneTimeMessage(messageRes: Int) {
+        if (oneTimeMessageShown || tornDown) return
+        oneTimeMessageShown = true
+        overlay?.showMessage(getString(messageRes))
     }
 
     /**
@@ -389,6 +432,7 @@ class CaptureService : Service() {
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1
         private const val MESSAGE_LINGER_MS = 4000L
+        private const val PROJECTION_GRACE_MS = 300L
 
         /** Starts captioning with the MediaProjection consent result ([resultCode], [data]). */
         fun start(context: Context, resultCode: Int, data: Intent) {

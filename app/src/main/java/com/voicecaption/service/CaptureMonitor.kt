@@ -8,7 +8,9 @@ import com.voicecaption.core.PcmFrame
  * [ServiceState], turns detector output into events and applies externally dispatched ones.
  *
  * [onFrame] checks, in order: the overlay permission (`overlayAllowed() == false` dispatches
- * [ServiceEvent.OverlayPermissionLost]), then the blocked detector. [ServiceEvent.CaptureBlocked]
+ * [ServiceEvent.OverlayPermissionLost]), then the blocked detector. The permission check is a
+ * binder call, so it runs on the first frame and then at most once per [OVERLAY_CHECK_INTERVAL_MS]
+ * of frame time (not wall clock); a revocation is therefore noticed within that interval. [ServiceEvent.CaptureBlocked]
  * / [ServiceEvent.CaptureAudible] are dispatched only on transitions of the detector's verdict,
  * never repeated. Frames after [ServiceState.STOPPED] are ignored.
  *
@@ -22,6 +24,7 @@ class CaptureMonitor(
     private val lock = Any()
     private var _state = ServiceState.IDLE
     private var blocked = false
+    private var lastOverlayCheckMs: Long? = null
 
     /** Current lifecycle state. */
     val state: ServiceState get() = synchronized(lock) { _state }
@@ -32,7 +35,11 @@ class CaptureMonitor(
     /** Feeds one frame and returns the resulting state. */
     fun onFrame(frame: PcmFrame): ServiceState = synchronized(lock) {
         if (_state == ServiceState.STOPPED) return _state
-        if (!overlayAllowed()) return apply(ServiceEvent.OverlayPermissionLost)
+        val last = lastOverlayCheckMs
+        if (last == null || frame.timestampMs - last >= OVERLAY_CHECK_INTERVAL_MS) {
+            lastOverlayCheckMs = frame.timestampMs
+            if (!overlayAllowed()) return apply(ServiceEvent.OverlayPermissionLost)
+        }
         val nowBlocked = detector.onFrame(frame)
         if (nowBlocked != blocked) {
             blocked = nowBlocked
@@ -44,5 +51,10 @@ class CaptureMonitor(
     private fun apply(event: ServiceEvent): ServiceState {
         _state = ServiceStateMachine.next(_state, event)
         return _state
+    }
+
+    companion object {
+        /** Minimum frame-time gap between two overlay permission checks. */
+        const val OVERLAY_CHECK_INTERVAL_MS = 500L
     }
 }

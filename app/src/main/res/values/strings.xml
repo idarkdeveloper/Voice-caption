@@ -11,6 +11,8 @@
     <string name="capture_error_start_failed">Couldn\'t start captions. Please try again</string>
     <string name="capture_error_unexpected">Captions stopped because of an error</string>
     <string name="capture_blocked">This app doesn\'t allow audio capture</string>
+    <string name="capture_error_recognizer">Couldn\'t recognize speech. Try the other speech model in Settings, or re-download it.</string>
+    <string name="capture_translation_failed">Translation failed; showing the original text.</string>
     <string name="capture_translation_missing">Translation pack not downloaded. Open the app to download</string>
 
     <!-- Common -->
@@ -33,7 +35,7 @@
     <string name="onboarding_status_granted">Allowed</string>
     <string name="onboarding_status_not_granted">Not allowed yet</string>
     <string name="onboarding_intro_title">Live captions over any film</string>
-    <string name="onboarding_intro_body">Watch in one language and read captions in another, right on top of your video. Everything runs on your phone.</string>
+    <string name="onboarding_intro_body">Watch in one language and read captions in another, right on top of your video. Speech recognition and translation run on your phone. Audio and text never leave it.</string>
     <string name="onboarding_intro_drm">Doesn\'t work with apps that block audio capture, such as some streaming apps.</string>
     <string name="onboarding_overlay_title">Show captions over other apps</string>
     <string name="onboarding_overlay_body">Captions appear in a floating box on top of your video. Android needs your OK for this.</string>

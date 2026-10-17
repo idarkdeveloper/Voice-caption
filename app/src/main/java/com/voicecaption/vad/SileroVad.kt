@@ -4,6 +4,7 @@ import android.content.Context
 import com.k2fsa.sherpa.onnx.SileroVadModelConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
+import com.voicecaption.core.wrapNativeLoad
 
 /**
  * [VoiceActivityDetector] backed by the Silero VAD model through the sherpa-onnx `Vad` API (no
@@ -19,26 +20,13 @@ import com.k2fsa.sherpa.onnx.VadModelConfig
  * stacking, sherpa's durations are set to about one window (32 ms) so this detector is close to
  * the raw per-frame Silero decision; [VadSegmenter] owns the real smoothing.
  *
+ * Construction fails with [IllegalStateException] (never an `Error`) if the native library or the
+ * model cannot be loaded.
+ *
  * Not thread-safe: call from the single audio-processing thread. [close] is idempotent.
  */
 class SileroVad(context: Context) : VoiceActivityDetector, AutoCloseable {
-    private var vad: Vad? = Vad(
-        assetManager = context.applicationContext.assets,
-        config = VadModelConfig(
-            sileroVadModelConfig = SileroVadModelConfig(
-                model = MODEL_ASSET,
-                threshold = THRESHOLD,
-                minSilenceDuration = MIN_DURATION_SEC,
-                minSpeechDuration = MIN_DURATION_SEC,
-                windowSize = FRAME_SAMPLES,
-                maxSpeechDuration = MAX_SPEECH_SEC,
-            ),
-            sampleRate = SAMPLE_RATE,
-            numThreads = 1,
-            provider = "cpu",
-            debug = false,
-        ),
-    )
+    private var vad: Vad? = wrapNativeLoad("Silero VAD") { createVad(context) }
 
     /** Feeds one [FRAME_SAMPLES]-sample frame and returns whether speech is currently detected. */
     override fun isSpeech(frame: FloatArray): Boolean {
@@ -58,6 +46,24 @@ class SileroVad(context: Context) : VoiceActivityDetector, AutoCloseable {
     }
 
     companion object {
+        private fun createVad(context: Context) = Vad(
+            assetManager = context.applicationContext.assets,
+            config = VadModelConfig(
+                sileroVadModelConfig = SileroVadModelConfig(
+                    model = MODEL_ASSET,
+                    threshold = THRESHOLD,
+                    minSilenceDuration = MIN_DURATION_SEC,
+                    minSpeechDuration = MIN_DURATION_SEC,
+                    windowSize = FRAME_SAMPLES,
+                    maxSpeechDuration = MAX_SPEECH_SEC,
+                ),
+                sampleRate = SAMPLE_RATE,
+                numThreads = 1,
+                provider = "cpu",
+                debug = false,
+            ),
+        )
+
         /** Samples per frame the model expects (32 ms at 16 kHz). */
         const val FRAME_SAMPLES = 512
         private const val SAMPLE_RATE = 16_000

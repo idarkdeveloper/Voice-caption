@@ -7,6 +7,7 @@ import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineWhisperModelConfig
 import com.voicecaption.core.ModelSize
 import com.voicecaption.core.SpeechSegment
+import com.voicecaption.core.wrapNativeLoad
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,8 +20,9 @@ import kotlinx.coroutines.withContext
  * The native recognizer is created lazily on the first [transcribe], on [Dispatchers.Default], so
  * constructing a WhisperLocal is free and the (slow, memory-heavy) model load never blocks the
  * caller's thread. A missing model file or a native-load failure surfaces as an exception from
- * that first [transcribe] ([java.io.FileNotFoundException] / [UnsatisfiedLinkError] /
- * [RuntimeException]); a failed load is retried on the next call.
+ * that first [transcribe] ([java.io.FileNotFoundException] for missing files,
+ * [IllegalStateException] for a native-load failure, `UnsatisfiedLinkError` included); a failed
+ * load is retried on the next call.
  *
  * Calls are serialized (one native decode at a time); the recognizer is not thread-safe.
  */
@@ -66,13 +68,15 @@ class WhisperLocal(
     private fun recognizerFor(language: String): OfflineRecognizer {
         val existing = recognizer
         if (existing == null) {
-            val created = OfflineRecognizer(config = buildConfig(language))
+            val config = buildConfig(language)
+            val created = wrapNativeLoad("Whisper recognizer") { OfflineRecognizer(config = config) }
             recognizer = created
             currentLanguage = language
             return created
         }
         if (language != currentLanguage) {
-            existing.setConfig(buildConfig(language))
+            val config = buildConfig(language)
+            wrapNativeLoad("Whisper recognizer") { existing.setConfig(config) }
             currentLanguage = language
         }
         return existing

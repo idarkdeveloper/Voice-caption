@@ -265,6 +265,20 @@ class CaptionPipelineTest {
     }
 
     @Test
+    fun recognizerErrorsCarryTheNumberOfSegmentsRecognizedBefore() = runTest {
+        val boom = IllegalStateException("whisper died")
+        var n = 0
+        val r = rig(FakeRecognizer { _, _ -> if (n++ % 2 == 0) throw boom else "hola" }, FakeTranslator { "hello" })
+        val errors = collectErrors(r)
+        repeat(4) { r.feedSpeech(); runCurrent() }
+
+        assertEquals(
+            listOf<PipelineError>(PipelineError.Recognizer(boom, 0), PipelineError.Recognizer(boom, 1)),
+            errors,
+        )
+    }
+
+    @Test
     fun slowRecognizerKeepsOrderAndBoundedBacklog() = runTest {
         val r = rig(FakeRecognizer { s, _ -> delay(1000); "t${s.startMs}" })
         val produced = 10

@@ -2,7 +2,11 @@ package com.voicecaption.ui
 
 import android.Manifest
 import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -98,7 +102,12 @@ fun AppRoot(vm: MainViewModel) {
                 onContinueFromIntro = { introDone = true },
                 onOpenOverlaySettings = {
                     overlayOpened = true
-                    context.startActivity(Permissions.overlaySettingsIntent(context))
+                    startFirstAvailable(
+                        context,
+                        Permissions.overlaySettingsIntent(context),
+                        Permissions.appDetailsIntent(context),
+                        Intent(Settings.ACTION_SETTINGS),
+                    )
                 },
                 onRequestNotifications = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -107,7 +116,13 @@ fun AppRoot(vm: MainViewModel) {
                 },
                 onSkipNotifications = { notificationsSkipped = true },
                 onRequestMicrophone = { microphoneLauncher.launch(Manifest.permission.RECORD_AUDIO) },
-                onOpenAppSettings = { context.startActivity(Permissions.appDetailsIntent(context)) },
+                onOpenAppSettings = {
+                    startFirstAvailable(
+                        context,
+                        Permissions.appDetailsIntent(context),
+                        Intent(Settings.ACTION_SETTINGS),
+                    )
+                },
             ),
         )
         return
@@ -149,5 +164,17 @@ fun AppRoot(vm: MainViewModel) {
                 onDeleteModel = vm::deleteModel,
             ),
         )
+    }
+}
+
+/** Starts the first of [intents] that some activity handles; never throws if none does. */
+private fun startFirstAvailable(context: Context, vararg intents: Intent) {
+    for (intent in intents) {
+        try {
+            context.startActivity(intent)
+            return
+        } catch (_: ActivityNotFoundException) {
+            // Device lacks this settings screen; try the next, more general one.
+        }
     }
 }

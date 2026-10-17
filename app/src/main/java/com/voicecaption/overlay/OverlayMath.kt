@@ -20,7 +20,7 @@ object OverlayMath {
     fun clampOffsetY(requested: Int, min: Int, max: Int): Int =
         if (max < min) min else requested.coerceIn(min, max)
 
-    /** Maximum plate width in pixels: 90% of the screen width. */
+    /** Maximum plate width in pixels: 90% of the screen width, floored (integer math, no float error). */
     fun maxPlateWidthPx(screenWidthPx: Int): Int =
-        (screenWidthPx.coerceAtLeast(0) * MAX_WIDTH_FRACTION).toInt()
+        (screenWidthPx.coerceAtLeast(0).toLong() * 9 / 10).toInt()
 }

@@ -16,5 +16,10 @@ class OverlayMathTest {
     @Test fun clampWithInvertedRangeReturnsMin() = assertEquals(100, OverlayMath.clampOffsetY(300, 100, 50))
 
     @Test fun maxWidthIsNinetyPercent() = assertEquals(972, OverlayMath.maxPlateWidthPx(1080))
+    @Test fun maxWidthIntegerExact() {
+        assertEquals(2160, OverlayMath.maxPlateWidthPx(2400))
+        assertEquals(972, OverlayMath.maxPlateWidthPx(1081))
+        assertEquals(0, OverlayMath.maxPlateWidthPx(1))
+    }
     @Test fun maxWidthNeverNegative() = assertEquals(0, OverlayMath.maxPlateWidthPx(-5))
 }
