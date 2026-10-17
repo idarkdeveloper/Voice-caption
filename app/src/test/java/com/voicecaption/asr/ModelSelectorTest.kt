@@ -30,4 +30,9 @@ class ModelSelectorTest {
         assertEquals(ModelSize.SMALL, ModelSelector.choose(ModelSize.SMALL, thermalStatus = 0, batteryPct = 80))
         assertEquals(ModelSize.BASE, ModelSelector.choose(ModelSize.BASE, thermalStatus = 0, batteryPct = 80))
     }
+
+    @Test
+    fun senseVoiceIsNeverSwappedForAnotherEngine() {
+        assertEquals(ModelSize.SENSEVOICE, ModelSelector.choose(ModelSize.SENSEVOICE, thermalStatus = 3, batteryPct = 5))
+    }
 }

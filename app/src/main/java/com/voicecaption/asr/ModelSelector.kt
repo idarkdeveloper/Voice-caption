@@ -13,5 +13,9 @@ object ModelSelector {
      * or the battery is below 15 %; otherwise the user's [preferred] size.
      */
     fun choose(preferred: ModelSize, thermalStatus: Int, batteryPct: Int): ModelSize =
-        if (thermalStatus >= THERMAL_MODERATE || batteryPct < LOW_BATTERY_PCT) ModelSize.BASE else preferred
+        when {
+            preferred == ModelSize.SENSEVOICE -> preferred // already lighter than Whisper small; never swapped for another engine
+            thermalStatus >= THERMAL_MODERATE || batteryPct < LOW_BATTERY_PCT -> ModelSize.BASE
+            else -> preferred
+        }
 }

@@ -185,6 +185,7 @@ private fun ModelChoice(selected: ModelSize, onSelect: (ModelSize) -> Unit) {
     val options = listOf(
         ModelSize.BASE to R.string.settings_model_fast,
         ModelSize.SMALL to R.string.settings_model_accurate,
+        ModelSize.SENSEVOICE to R.string.settings_model_experimental,
     )
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
         Text(

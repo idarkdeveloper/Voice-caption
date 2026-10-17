@@ -24,7 +24,8 @@ data class Caption(
     val updatedAtMs: Long,
 )
 
-enum class ModelSize { BASE, SMALL }
+/** BASE/SMALL are Whisper sizes; SENSEVOICE is the experimental SenseVoice-Small recognizer. */
+enum class ModelSize { BASE, SMALL, SENSEVOICE }
 
 data class CaptionSettings(
     val sourceLang: String = "en",

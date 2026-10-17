@@ -89,6 +89,7 @@
     <string name="settings_model">Speech model</string>
     <string name="settings_model_fast">Fast (base)</string>
     <string name="settings_model_accurate">Accurate (small)</string>
+    <string name="settings_model_experimental">SenseVoice (test)</string>
     <string name="settings_model_helper">Accurate uses more battery and may lag on older phones</string>
     <string name="settings_languages">Languages</string>
     <string name="settings_storage">Storage</string>
@@ -100,4 +101,5 @@
     <string name="settings_delete_message">Delete the %1$s speech model? You can download it again later.</string>
     <string name="model_name_fast">Fast</string>
     <string name="model_name_accurate">Accurate</string>
+    <string name="model_name_experimental">SenseVoice</string>
 </resources>
