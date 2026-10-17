@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Only the window chrome; all content is Compose (see ui/theme). -->
-    <style name="Theme.Captionly" parent="@android:style/Theme.DeviceDefault.DayNight">
+    <style name="Theme.TransCap" parent="@android:style/Theme.DeviceDefault.DayNight">
         <item name="android:windowBackground">@color/window_background</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>

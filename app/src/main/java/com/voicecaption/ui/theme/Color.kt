@@ -2,7 +2,7 @@ package com.voicecaption.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Colors come from the generated Captionly palette (slate / electric blue / amber / orange).
+// Colors come from the generated TransCap palette (slate / electric blue / amber / orange).
 // PROVISIONAL: docs/design/2026-10-17-android-ui-and-landing-page.md says there is no design
 // system yet, so reconcile these with DESIGN.md once it exists. Text pairs below were chosen for
 // at least 4.5:1 contrast; do not substitute lower-contrast values.

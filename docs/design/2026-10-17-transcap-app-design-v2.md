@@ -1,17 +1,17 @@
-# Captionly App Design v2 (features, colour, UI/UX, copy)
+# TransCap App Design v2 (features, colour, UI/UX, copy)
 
 Date: 2026-10-17
 Status: Draft for review
-Maturity: **L0 (greenfield)**. No `DESIGN.md` or `.ds-context.md` exists. Every value below
-(hex, dp, sp) is **provisional**. The colour values are the ones already in the app's theme
-(`ui/theme/Color.kt`, from the generated Captionly palette), so the document matches what is
-built; they still need reconciling once a design language exists. Offer: scaffold `DESIGN.md` from
-this document (`/map-design`).
+Maturity: **L1 (design language defined)** since `DESIGN.md` was added at the repository root; this
+document was written at L0, so its values were provisional. The colour values are the ones already
+in the app's theme (`ui/theme/Color.kt`, from the generated palette), so the document matches what
+is built. `DESIGN.md` is now the source of truth for tokens and rules; this document keeps the
+screens, feature list and copy.
 
 Supersedes the Android part of `2026-10-17-android-ui-and-landing-page.md`, which described the
 first free-tier build. The landing page part of that document is unchanged.
 
-![Captionly screens: Home, In use, Settings, First-run download](img/captionly-design-v2.png)
+![TransCap screens: Home, In use, Settings, First-run download](img/transcap-design-v2.png)
 
 All imagery in the sheet is placeholder (a drawn gradient, not footage). Screens are a design
 reference, not screenshots.
@@ -58,7 +58,7 @@ Dark is the default (it sits next to video). A light theme follows the system se
 |---|---|---|---|
 | background / surface | `#090D18` | `#FFFFFF` | Screens |
 | card | `#1A1F2D` | `#F2F5FB` | Grouped content, download card |
-| text | `#EAF2FF` | near black | Body and titles |
+| text | `#EAF2FF` | `#090D18` | Body and titles |
 | secondary text | `#9CA4BA` | `#555D72` | Helper text, labels |
 | primary | `#6092FF` | `#2439EE` | Start button, selected controls, progress |
 | text on primary | `#090D18` | white | Button labels |
@@ -153,18 +153,18 @@ Three steps: what it does (with the DRM limit), permissions (overlay, notificati
 ## 9. UX copy
 
 Terms: **caption** (the text shown), **box** (one of the two caption boxes), **film language**,
-**captions in**, **speech model**, **language pack**. The app name is **Captionly**; the code still
-says "Voice Caption" in `strings.xml` (`app_name`). Decide and align both.
+**captions in**, **speech model**, **language pack**. The app name is **TransCap** (`app_name`
+in `strings.xml`, the theme and the manifest all use it).
 
 ### Recommended copy
 | Element | Current | Recommended | Why |
 |---|---|---|---|
-| App name | Voice Caption | Captionly | Matches the design and palette |
+| App name | Voice Caption | TransCap | Chosen name; applied in the app (the package id `com.voicecaption` is unchanged so installed copies update) |
 | Status chip | Ready | Ready · Speech model: SenseVoice (Auto) | Shows what will run |
 | Audio blocked | This app doesn't allow audio capture | Can't hear this app. It blocks audio capture. Try another player. | Says what happened and what to do |
 | Recognizer failed | Couldn't recognize speech. Try the other speech model in Settings, or re-download it. | Captions stopped: the speech model isn't working. In Settings, pick another model or download it again. | Starts with the result |
 | Translation failed | Translation failed; showing the original text. | Couldn't translate this line. Showing the original. | Shorter, no semicolon |
-| Pack missing | Translation pack not downloaded. Open the app to download | Translation isn't ready. Open Captionly to download the language pack. | Consistent term, full stop |
+| Pack missing | Translation pack not downloaded. Open the app to download | Translation isn't ready. Open TransCap to download the language pack. | Consistent term, full stop |
 | Show original text helper | (none) | Adds a smaller box with the film's own language above the translation. | Explains the second box |
 | Auto helper | Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, and Whisper for other languages. | Auto picks the best speech model for the film's language: SenseVoice for Japanese, Chinese, Korean and Cantonese, Whisper for the rest. | States the benefit first |
 | Contrast warning | Warning: these colours are hard to tell apart. Captions may be difficult to read. | Low contrast: captions may be hard to read. Try white text on a dark background. | Gives the fix |
@@ -178,7 +178,7 @@ says "Voice Caption" in `strings.xml` (`app_name`). Decide and align both.
 | Line | Option | Copy | Tone | Best for |
 |---|---|---|---|---|
 | Audio blocked | A (recommended) | Can't hear this app. It blocks audio capture. Try another player. | Plain, helpful | Overlay message |
-| | B | This app blocks audio capture, so Captionly can't caption it. | Neutral | Longer help text |
+| | B | This app blocks audio capture, so TransCap can't caption it. | Neutral | Longer help text |
 | | C | No audio from this app. Try a different player. | Brief | Notification |
 | Contrast warning | A (recommended) | Low contrast: captions may be hard to read. Try white text on a dark background. | Direct | Settings |
 | | B | These two colours look alike. Pick colours that stand out from each other. | Friendly | Onboarding tone |
@@ -195,13 +195,12 @@ Buttons use verbs.
 ### Localization notes
 - Expect 30 % longer text in German, French and Spanish; the Settings segmented control (four
   labels) must wrap or shorten at large font sizes.
-- "Wi-Fi", "Whisper", "SenseVoice", "Captionly" are not translated.
+- "Wi-Fi", "Whisper", "SenseVoice", "TransCap" are not translated.
 - Avoid idioms ("hard to tell apart" is simple, but "stand out" may not translate well).
 - File sizes use the phone's number format ("228 MB").
 - Right-to-left languages: boxes stay centred; the original box may contain mixed-direction text.
 
 ## 10. Open questions
-1. App name: **Captionly** or **Voice Caption**? (the code and the design currently disagree)
-2. Scaffold `DESIGN.md` from this document so later work has a real design language to compose against?
-3. Build the proposals in section 2 (separate plate moving, searchable language list, text size stepper)?
-4. Light theme: confirm the near-black text value (not yet defined in the theme).
+1. Build the proposals in section 2 (separate plate moving, searchable language list, text size stepper)?
+2. A logo and app icon for TransCap (the app still uses a placeholder icon).
+3. The domain `rt.transcap.app` and the store product id in the backend design are placeholders; availability of the name, domain and store listing has not been checked.

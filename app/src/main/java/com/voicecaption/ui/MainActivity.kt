@@ -8,7 +8,7 @@ import androidx.activity.viewModels
 import com.voicecaption.appContainer
 import com.voicecaption.ui.permissions.Permissions
 import com.voicecaption.ui.state.MainViewModel
-import com.voicecaption.ui.theme.CaptionlyTheme
+import com.voicecaption.ui.theme.TransCapTheme
 
 /** The launcher activity: hosts the Compose UI and re-reads permissions every time it resumes. */
 class MainActivity : ComponentActivity() {
@@ -17,7 +17,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent { CaptionlyTheme { AppRoot(vm) } }
+        setContent { TransCapTheme { AppRoot(vm) } }
     }
 
     override fun onResume() {

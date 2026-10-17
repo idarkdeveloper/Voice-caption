@@ -27,5 +27,5 @@ dependencyResolutionManagement {
         }
     }
 }
-rootProject.name = "VoiceCaption"
+rootProject.name = "TransCap"
 include(":app")

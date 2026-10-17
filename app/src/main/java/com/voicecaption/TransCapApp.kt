@@ -6,7 +6,7 @@ import com.voicecaption.app.AppContainer
 import com.voicecaption.service.ServiceDependencies
 
 /** Application class: creates the [AppContainer] and plugs the live settings into the service. */
-class CaptionlyApp : Application() {
+class TransCapApp : Application() {
     /** The process-wide dependency container. */
     lateinit var container: AppContainer
         private set
@@ -21,4 +21,4 @@ class CaptionlyApp : Application() {
 
 /** The app's [AppContainer], from any Context (Activity, Service...). */
 val Context.appContainer: AppContainer
-    get() = (applicationContext as CaptionlyApp).container
+    get() = (applicationContext as TransCapApp).container

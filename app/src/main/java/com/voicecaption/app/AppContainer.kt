@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
 /**
- * Manual dependency container; one instance per process, created by [CaptionlyApp].
+ * Manual dependency container; one instance per process, created by [TransCapApp].
  *
  * Everything is built lazily and once. The translator is shared with the UI and is never closed
  * here: [MlKitTranslator.close] is teardown-only (the capture service closes its own instance).

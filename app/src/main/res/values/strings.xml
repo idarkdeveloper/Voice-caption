@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Voice Caption</string>
+    <string name="app_name">TransCap</string>
     <string name="capture_channel_name">Live captions</string>
     <string name="capture_notification_title">Live captions are on</string>
     <string name="capture_notification_text">Captioning the sound playing on this phone</string>
