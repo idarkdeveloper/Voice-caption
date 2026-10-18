@@ -20,6 +20,16 @@ class MainActivity : ComponentActivity() {
         setContent { TransCapTheme { AppRoot(vm) } }
     }
 
+    override fun onStart() {
+        super.onStart()
+        com.voicecaption.service.AppVisibility.visible = true
+    }
+
+    override fun onStop() {
+        com.voicecaption.service.AppVisibility.visible = false
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         vm.refreshPermissions(Permissions.current(this))

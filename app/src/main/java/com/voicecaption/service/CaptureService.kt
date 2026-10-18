@@ -377,7 +377,7 @@ class CaptureService : Service() {
     /** Starts the screen recording on the same projection; a failure only costs the recording, never the captions. */
     private fun startRecording(proj: MediaProjection) {
         val metrics = resources.displayMetrics
-        val r = ScreenRecorder(this)
+        val r = ScreenRecorder(this) { AppVisibility.visible }
         r.start(proj, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
             .onSuccess { recorder = r }
             .onFailure { showOneTimeMessage(R.string.record_failed) }

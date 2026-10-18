@@ -31,7 +31,11 @@ import android.view.Surface
  *
  * Call [start] once and [stop] once; [stop] blocks for a short time and must not run on the main thread.
  */
-class ScreenRecorder(private val context: Context) {
+class ScreenRecorder(
+    private val context: Context,
+    /** True while the TransCap app is on screen; those moments are left out of the video. */
+    private val isAppVisible: () -> Boolean = { false },
+) {
     private var uri: Uri? = null
     private var pfd: ParcelFileDescriptor? = null
     private var muxer: MediaMuxer? = null
@@ -51,7 +55,8 @@ class ScreenRecorder(private val context: Context) {
     private var videoTrack = -1
     private var audioTrack = -1
     private var muxerStarted = false
-    private var baseUs = -1L
+    private val gate = RecordingGate()
+    private var lastSyncRequestMs = 0L
     private var lastVideoUs = 0L
     private var lastAudioUs = 0L
     private var samplesWritten = 0L
@@ -280,13 +285,20 @@ class ScreenRecorder(private val context: Context) {
             if (!muxerStarted) return
             val track = if (isVideo) videoTrack else audioTrack
             if (track < 0) return
-            if (baseUs < 0) baseUs = info.presentationTimeUs
-            var pts = (info.presentationTimeUs - baseUs).coerceAtLeast(0)
-            // The muxer wants non-decreasing times per track.
+            val hidden = !isAppVisible()
+            var pts: Long
             if (isVideo) {
+                when (val action = gate.onVideo(info.presentationTimeUs, info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0, hidden)) {
+                    is RecordingGate.VideoAction.Drop -> {
+                        if (action.requestKeyFrame) requestKeyFrame()
+                        return
+                    }
+                    is RecordingGate.VideoAction.Write -> pts = action.outUs
+                }
                 pts = maxOf(pts, lastVideoUs)
                 lastVideoUs = pts
             } else {
+                pts = gate.onAudio(info.presentationTimeUs, hidden) ?: return
                 pts = maxOf(pts, lastAudioUs)
                 lastAudioUs = pts
             }
@@ -295,6 +307,16 @@ class ScreenRecorder(private val context: Context) {
             buffer.limit(info.offset + info.size)
             muxer?.writeSampleData(track, buffer, info)
             samplesWritten++
+        }
+    }
+
+    /** Asks the video encoder for a key frame (at most every 300 ms) so writing can start cleanly. */
+    private fun requestKeyFrame() {
+        val now = System.currentTimeMillis()
+        if (now - lastSyncRequestMs < 300) return
+        lastSyncRequestMs = now
+        runCatching {
+            videoEncoder?.setParameters(android.os.Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0) })
         }
     }
 

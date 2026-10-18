@@ -28,7 +28,7 @@ TransCap is an Android app that listens to whatever film or video is playing on 
 | ⚡ **Live captions** | Text shows while the person is still speaking, then settles. Display time grows with sentence length. |
 | 🎵 **Marks music** | Background music shows as one `(music)` caption instead of wrong words. |
 | 🎨 **Your style** | Separate boxes for the original line and the translation, drag each one, reset positions, text and plate colours, size stepper, opacity. |
-| 🎥 **Records with captions** | Optional switch on Home: saves a video of your screen, with the caption boxes on it and the video's sound, to `Movies/TransCap`. It uses the same screen-sharing session as the captions, so it works where Android's own recorder would stop them. |
+| 🎥 **Records with captions** | Optional switch on Home: saves a video of your screen, with the caption boxes on it and the video's sound, to `Movies/TransCap`. TransCap's own screen is trimmed out automatically. It uses the same screen-sharing session as the captions, so it works where Android's own recorder would stop them. |
 | 🔒 **Private by default** | Nothing is recorded or stored, and no audio or transcript is sent anywhere in the free tier. |
 
 <p align="center"><img src="docs/readme/screens-settings-download.png" alt="Design mockup: Settings and first-run download screens" width="85%"></p>
@@ -90,7 +90,7 @@ How it works inside: `AudioCapture → FrameChunker → VadSegmenter (Silero) �
 ## 🛠️ Runbook
 
 ```bash
-./gradlew testDebugUnitTest    # 309 unit tests
+./gradlew testDebugUnitTest    # 313 unit tests
 ./gradlew lintDebug
 ./gradlew assembleDebug
 ```
