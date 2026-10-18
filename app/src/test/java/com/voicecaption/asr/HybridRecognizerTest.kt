@@ -49,4 +49,16 @@ class HybridRecognizerTest {
         h.close()
         assertTrue(fast.closed && long.closed)
     }
+
+    @Test
+    fun chineseLongSentencesGoLongAndTheHintCoversAutoCalls() = runTest {
+        val fast = Fake("fast"); val long = Fake("long", outputLanguage = "en")
+        val h = HybridRecognizer(fast, long)
+        assertEquals("long", h.recognize(seg(5_000), "zh").text)
+        // Auto-detect keeps SenseVoice on "auto"; the session language arrives as a hint.
+        assertEquals("fast", h.recognize(seg(5_000), "auto").text) // no hint yet
+        h.languageHint = "zh"
+        assertEquals("long", h.recognize(seg(5_000), "auto").text)
+        assertEquals("fast", h.recognize(seg(2_000), "auto").text)
+    }
 }

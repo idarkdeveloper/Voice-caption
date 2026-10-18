@@ -77,6 +77,7 @@ class AutoRecognizer(
             // Japanese and Korean are told to SenseVoice: left to detect each short or noisy line itself
             // it sometimes decoded Korean as Japanese. Chinese stays on auto so it can tell Mandarin from Cantonese.
             val told = locked in TOLD_LANGUAGES
+            (senseVoice as? HybridRecognizer)?.languageHint = locked
             val t = senseVoice.recognize(segment, if (told) locked else AUTO_LANGUAGE)
             currentOutputLanguage = senseVoice.outputLanguage // null unless a long line was translated by a helper
             // SenseVoice names Cantonese "yue"; ML Kit knows it as Chinese.
