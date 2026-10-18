@@ -1,4 +1,4 @@
-# Paid-Tier Backend Design (Captionly Cloud Speech)
+# Paid-Tier Backend Design (TransCap Cloud Speech)
 
 Date: 2026-10-17
 Status: Final blueprint, revised with the owner's binding decisions. Nothing is built yet. Vendor prices, language lists and endpoint details were checked against Deepgram's public pages on 2026-10-17. They are marked "verify" where the build sequence re-checks them (Phase 0 and the staging soak).
@@ -141,7 +141,7 @@ Cut order if the soak measurements disappoint (no client change in either case: 
 | `POST /v1/internal/reconcile` | billing | Cloud Scheduler OIDC | Daily subscription reconcile, acknowledgement retry, retention purge |
 | `GET /healthz`, `GET /readyz` | both | none | Liveness (process only). Readiness: config loaded, DB reachable (cached 10 s), Deepgram breaker not open |
 
-Session request body: `{language, app_version, device_hash, integrity_token?}`. Here `device_hash = SHA-256("captionly:" + ANDROID_ID)` computed on the client. The server stores only `HMAC-SHA256(pepper, device_hash)`.
+Session request body: `{language, app_version, device_hash, integrity_token?}`. Here `device_hash = SHA-256("transcap:" + ANDROID_ID)` computed on the client. The server stores only `HMAC-SHA256(pepper, device_hash)`.
 
 ### 1.6 Session response contract
 
@@ -150,7 +150,7 @@ Every authenticated, App-Check-valid request returns **200** with this body. Ref
 ```json
 { "stream_allowed": true, "reason": "ok", "tier": "paid",
   "session_token": "<JWT>", "expires_at": "2026-10-17T12:05:00Z",
-  "ws_url": "wss://rt.captionly.app/v1/stream", "region": "europe-west4", "asr_region": "eu",
+  "ws_url": "wss://rt.transcap.app/v1/stream", "region": "europe-west4", "asr_region": "eu",
   "period": { "month": "2026-10", "resets_at": "2026-11-01T00:00:00Z" },
   "cap_ms": 36000000, "used_ms": 1200000, "remaining_ms": 34800000,
   "trial_cap_ms": 600000, "trial_remaining_ms": 0,
@@ -566,10 +566,10 @@ Channel drops (`DROP_OLDEST`, capacity 4) still work. A dropped job's segment wa
 | `asr/FallbackSpeechRecognizer : StreamingSpeechRecognizer` | Wraps cloud + `WhisperLocal`. State machine: `CLOUD` → `LOCAL_RETRY(backoff)` → `CLOUD`, or `LOCAL_FINAL(reason)` for 4002/4003/4004/4029/4400. **Any** cloud failure on a segment (timeout, close, empty `complete:false`) is re-done with `WhisperLocal.transcribe(segment.samples)`, so no caption is lost. Exposes `cloudState: StateFlow<CloudRunState>` for the overlay and UI. Cloud errors are absorbed, so `RecognizerFailureTracker` (`service/RecognizerFailureTracker.kt`) still counts only on-device failures |
 | `cloud/CloudApi` | OkHttp + kotlinx.serialization client for §1.5, with ID token + App Check headers and a `traceparent` interceptor |
 | `cloud/CloudAuth` | Firebase anonymous auth; App Check with `PlayIntegrityAppCheckProviderFactory` (debug provider in debug builds); limited-use tokens for trial claim and purchase link; Play Integrity standard request for the trial |
-| `cloud/DeviceId` | `SHA-256("captionly:" + ANDROID_ID)` |
+| `cloud/DeviceId` | `SHA-256("transcap:" + ANDROID_ID)` |
 | `cloud/CloudStatusRepository` | Caches the last `/v1/me` or session body as `StateFlow<CloudStatus>`. Refreshes on app foreground, after a purchase, and on `config_changed` |
 | `cloud/CloudPreferences` (separate DataStore) | `cloud_enabled_by_user`, `cloud_consent_version`, `cloud_consent_at`. `CaptionSettings` stays untouched |
-| `billing/BillingRepository` | Play Billing Library (current major version; verify v8): product `captionly_cloud_monthly`, `enablePendingPurchases`, `launchBillingFlow` with `setObfuscatedAccountId(SHA-256(uid))`. `PurchasesUpdatedListener` → `POST /v1/purchases/link`. `queryPurchasesAsync(SUBS)` on every app start relinks (the reinstall/transfer path). **No client-side acknowledge** (the server acknowledges). "Manage subscription" deep-links to the Play subscription center |
+| `billing/BillingRepository` | Play Billing Library (current major version; verify v8): product `transcap_cloud_monthly`, `enablePendingPurchases`, `launchBillingFlow` with `setObfuscatedAccountId(SHA-256(uid))`. `PurchasesUpdatedListener` → `POST /v1/purchases/link`. `queryPurchasesAsync(SUBS)` on every app start relinks (the reinstall/transfer path). **No client-side acknowledge** (the server acknowledges). "Manage subscription" deep-links to the Play subscription center |
 
 ### 8.3 Wiring in `CaptureService`
 
@@ -593,8 +593,8 @@ Channel drops (`DROP_OLDEST`, capacity 4) still work. A dropped job's segment wa
 
 Consent screen, shown before the first cloud use (from the trial button or the paywall):
 - What is sent: the speech portions of audio played by other apps, the chosen language, a pseudonymous account id.
-- To whom: Captionly servers (US/EU) and Deepgram as processor. EU users' audio is processed in the EU.
-- What is not stored: audio and transcripts are not stored by Captionly; vendor retention is per contract.
+- To whom: TransCap servers (US/EU) and Deepgram as processor. EU users' audio is processed in the EU.
+- What is not stored: audio and transcripts are not stored by TransCap; vendor retention is per contract.
 - Translation stays on the phone.
 - Withdraw anytime in Settings; account deletion is available.
 
@@ -699,7 +699,7 @@ Order: **Slice 0** → Plan 1 → (Plan 2 ∥ Plan 3 ∥ Plan 5 E1–E2) → Pla
 | 2 | Verify the language list and streaming support per language (preliminary gaps: cy, gl, ht, is, mt, sq, sw) | Accept the Phase 0 output as the source of truth; name supported languages on the paywall |
 | 3 | Deepgram EU endpoint: Nova-3 streaming availability, price parity, host location; whether an Asia endpoint exists | Confirm with Deepgram sales before Plan 4; choose the europe-west region nearest the EU host |
 | 4 | Deepgram data retention and Model Improvement Program | Send `mip_opt_out=true` on every request, confirm any price impact, and get no-retention / no-training terms in the DPA before launch. The privacy promise depends on it |
-| 5 | Play Console: subscription `captionly_cloud_monthly` with a monthly base plan at $4.99, grace period, account hold, RTDN topic + push subscription per environment, service-account permissions, license testers | Set up in Plan 3, week 1; verify with a test notification |
+| 5 | Play Console: subscription `transcap_cloud_monthly` with a monthly base plan at $4.99, grace period, account hold, RTDN topic + push subscription per environment, service-account permissions, license testers | Set up in Plan 3, week 1; verify with a test notification |
 | 6 | Privacy policy and Play data-safety wording for cloud audio | Declare "Audio: other audio files / sound recordings" as collected, **processed ephemerally**, not shared (Deepgram is a service provider), optional (consent-gated), with deletion available. Also declare the pseudonymous id and usage data. Get a legal review |
 | 7 | App Check enforcement | Monitor for 1 week in staging/internal track, then **enforce before public launch**; never launch in monitor-only mode |
 | 8 | Neon primary region and plan | aws-us-east-1, a paid plan with autosuspend off and 7-day PITR. Revisit only if most users turn out to be in the EU |

@@ -208,7 +208,7 @@ class LatencyBenchmarkTest {
     }
 
     private companion object {
-        const val TAG = "CaptionlyBench"
+        const val TAG = "TransCapBench"
         const val RESULTS_FILE = "bench-results.jsonl"
         const val RUNS = 3
         const val LOG_CHUNK = 3500

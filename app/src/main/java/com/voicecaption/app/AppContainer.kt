@@ -16,6 +16,7 @@ import com.voicecaption.core.ModelSize
 import com.voicecaption.service.CaptureStatus
 import com.voicecaption.service.ServiceDependencies
 import com.voicecaption.settings.SettingsRepository
+import com.voicecaption.settings.SupportedLanguages
 import com.voicecaption.translate.MlKitTranslator
 import com.voicecaption.ui.state.DownloadController
 import com.voicecaption.ui.state.MainViewModel
@@ -34,7 +35,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 
 /**
- * Manual dependency container; one instance per process, created by [CaptionlyApp].
+ * Manual dependency container; one instance per process, created by [TransCapApp].
  *
  * Everything is built lazily and once. The translator is shared with the UI and is never closed
  * here: [MlKitTranslator.close] is teardown-only (the capture service closes its own instance).
@@ -82,6 +83,14 @@ class AppContainer(context: Context) {
         DownloadController(modelManager.asInstaller(), translator, appScope)
     }
 
+    /**
+     * A second controller used only for "Download all languages". It has its own state, so a long
+     * download of packs never blocks Start, the Home status or the normal one-pair download.
+     */
+    val languagePackController: DownloadController by lazy {
+        DownloadController(modelManager.asInstaller(), translator, appScope)
+    }
+
     /** [SettingsStore] over [settingsState] and [settingsRepository]. */
     val settingsStore: SettingsStore by lazy {
         object : SettingsStore {
@@ -105,7 +114,9 @@ class AppContainer(context: Context) {
         }
 
         override suspend fun isTranslationReady(source: String, target: String) =
-            source == target || guarded("isReady") { translator.isReady(source, target) }
+            source == target || SupportedLanguages.isAuto(source) || guarded("isReady") { translator.isReady(source, target) }
+
+        override suspend fun downloadedLanguages(): Set<String> = setOf("en") + translator.downloadedLanguages()
 
         override suspend fun deleteModel(size: ModelSize) =
             guarded("delete") { withContext(Dispatchers.IO) { modelManager.delete(size) } }
@@ -120,6 +131,7 @@ class AppContainer(context: Context) {
                 store = settingsStore,
                 readiness = readinessSource,
                 downloads = downloadController,
+                languagePacks = languagePackController,
                 captureRunning = CaptureStatus.running,
                 scope = CoroutineScope(
                     SupervisorJob() + Dispatchers.Default +

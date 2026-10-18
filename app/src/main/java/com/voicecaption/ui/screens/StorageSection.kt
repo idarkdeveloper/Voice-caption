@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,12 +32,22 @@ import com.voicecaption.ui.theme.Spacing
 
 @Composable
 private fun modelTitle(size: ModelSize): String = stringResource(
-    if (size == ModelSize.BASE) R.string.settings_model_fast else R.string.settings_model_accurate,
+    when (size) {
+        ModelSize.BASE -> R.string.storage_model_fast
+        ModelSize.SMALL -> R.string.storage_model_accurate
+        ModelSize.SENSEVOICE -> R.string.settings_model_experimental
+        ModelSize.TURBO -> R.string.storage_model_turbo
+    },
 )
 
 @Composable
 private fun modelName(size: ModelSize): String = stringResource(
-    if (size == ModelSize.BASE) R.string.model_name_fast else R.string.model_name_accurate,
+    when (size) {
+        ModelSize.BASE -> R.string.model_name_fast
+        ModelSize.SMALL -> R.string.model_name_accurate
+        ModelSize.SENSEVOICE -> R.string.model_name_experimental
+        ModelSize.TURBO -> R.string.model_name_turbo_short
+    },
 )
 
 /**
@@ -53,11 +64,7 @@ fun StorageSection(
 ) {
     var confirming by rememberSaveable { mutableStateOf<ModelSize?>(null) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-        Text(
-            stringResource(R.string.settings_storage),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() },
-        )
+        SectionTitle(stringResource(R.string.settings_storage))
         if (running) {
             Text(
                 stringResource(R.string.settings_storage_running),
@@ -65,7 +72,9 @@ fun StorageSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        ModelSize.entries.forEach { size ->
+        SettingsCard(padding = 0.dp) {
+        ModelSize.entries.forEachIndexed { index, size ->
+            if (index > 0) SettingsDivider()
             val isInstalled = size in installed
             Row(
                 modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target),
@@ -92,6 +101,7 @@ fun StorageSection(
                     }
                 }
             }
+        }
         }
     }
 

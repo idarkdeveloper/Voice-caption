@@ -66,6 +66,14 @@ class MlKitTranslator(@Suppress("UNUSED_PARAMETER") context: Context) : Translat
         }
     }
 
+    override suspend fun downloadedLanguages(): Set<String> = try {
+        modelManager.getDownloadedModels(TranslateRemoteModel::class.java).await().map { it.language }.toSet()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptySet()
+    }
+
     /** Releases all cached ML Kit clients. The instance stays usable; clients are recreated lazily. */
     fun close() {
         val all = clients.values.toList()

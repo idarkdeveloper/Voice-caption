@@ -1,6 +1,31 @@
 package com.voicecaption.ui.screens
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import com.voicecaption.core.ModelSize
+import com.voicecaption.ui.theme.Amber
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,6 +84,7 @@ class HomeActions(
     val onDownload: () -> Unit,
     val onRetryDownload: () -> Unit,
     val onCancelDownload: () -> Unit,
+    val onRecordScreen: (Boolean) -> Unit,
 )
 
 /**
@@ -81,69 +107,107 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.Margin),
-            verticalArrangement = Arrangement.spacedBy(Spacing.Large),
+                .padding(padding),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Header(onOpenSettings = actions.onOpenSettings)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Spacing.Margin, vertical = Spacing.Small),
+                verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
             ) {
-                Text(
-                    stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f).semantics { heading() },
+                LanguagePairRow(
+                    sourceLang = state.settings.sourceLang,
+                    targetLang = state.settings.targetLang,
+                    onSourceSelected = actions.onSourceLanguage,
+                    onTargetSelected = actions.onTargetLanguage,
+                    onSwap = actions.onSwapLanguages,
+                    downloaded = state.downloadedLanguages,
                 )
-                IconButton(onClick = actions.onOpenSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_open))
+
+                RecordToggle(
+                    checked = state.settings.recordScreen,
+                    enabled = !state.running,
+                    onChange = actions.onRecordScreen,
+                )
+
+                val (icon, tint) = statusIcon(status, notStarted)
+                StatusChip(
+                    icon = icon,
+                    tint = tint,
+                    text = stringResource(statusText(status, notStarted)),
+                    detail = stringResource(R.string.home_speech_model, speechModelName(state)),
+                )
+
+                (state.languagePacks as? DownloadState.Downloading)?.let { packs ->
+                    Column(
+                        modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                        verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+                    ) {
+                        Text(
+                            packs.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { packs.progress.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                }
+
+                if (state.running) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        Column(Modifier.padding(Spacing.Margin), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(stringResource(R.string.home_running_title), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                stringResource(R.string.home_running_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+
+                if (step == SetupStep.DOWNLOADS && !state.running) {
+                    DownloadCard(
+                        download = state.download,
+                        needs = DownloadNeeds(
+                            modelMegabytes = speechModelMegabytes.takeIf { !state.modelInstalled },
+                            needsPack = !state.translationReady,
+                        ),
+                        onDownload = actions.onDownload,
+                        onRetry = actions.onRetryDownload,
+                        onCancel = actions.onCancelDownload,
+                    )
                 }
             }
 
-            LanguagePairRow(
-                sourceLang = state.settings.sourceLang,
-                targetLang = state.settings.targetLang,
-                onSourceSelected = actions.onSourceLanguage,
-                onTargetSelected = actions.onTargetLanguage,
-                onSwap = actions.onSwapLanguages,
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+            // The primary action sits at the bottom, in thumb reach.
+            Column(
+                modifier = Modifier.padding(start = Spacing.Margin, end = Spacing.Margin, bottom = Spacing.Large),
+                verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
+            ) {
+                if (!state.running && state.canStart) {
+                    Hint(stringResource(R.string.home_consent_body), center = true)
+                }
                 PrimaryAction(
                     running = state.running,
                     enabled = state.running || state.canStart,
                     onStart = { showConsent = true },
                     onStop = actions.onStop,
                 )
-                if (!state.running && !state.canStart) {
-                    Text(
-                        stringResource(startBlockedReason(state)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                when {
+                    state.running -> Hint(stringResource(R.string.settings_move_hint), center = true)
+                    !state.canStart -> Hint(stringResource(startBlockedReason(state)), center = true)
+                    else -> Hint(stringResource(R.string.onboarding_intro_drm), center = true)
                 }
-            }
-
-            val (icon, tint) = statusIcon(status, notStarted)
-            StatusLine(
-                icon = icon,
-                text = stringResource(statusText(status, notStarted)),
-                tint = tint,
-                announce = true,
-            )
-
-            if (step == SetupStep.DOWNLOADS && !state.running) {
-                DownloadCard(
-                    download = state.download,
-                    needs = DownloadNeeds(
-                        modelMegabytes = speechModelMegabytes.takeIf { !state.modelInstalled },
-                        needsPack = !state.translationReady,
-                    ),
-                    onDownload = actions.onDownload,
-                    onRetry = actions.onRetryDownload,
-                    onCancel = actions.onCancelDownload,
-                )
             }
         }
     }
@@ -165,16 +229,94 @@ fun HomeScreen(
     }
 }
 
+@Composable
+private fun Header(onOpenSettings: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = Spacing.Margin, end = Spacing.Small, top = Spacing.Small),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            modifier = Modifier.semantics(mergeDescendants = true) { heading() },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Image(painterResource(R.drawable.ic_logo_mark), contentDescription = null, modifier = Modifier.size(32.dp))
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) { append("Trans") }
+                    withStyle(SpanStyle(color = Amber)) { append("Cap") }
+                },
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        IconButton(onClick = onOpenSettings) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_open))
+            }
+        }
+    }
+}
+
+/** A pill with a state icon, the state in words, and a secondary detail. State never relies on colour alone. */
+@Composable
+private fun StatusChip(icon: ImageVector, tint: Color, text: String, detail: String) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(start = 10.dp, end = 14.dp, top = Spacing.Small, bottom = Spacing.Small)
+            .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium)
+        Text("· $detail", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun Hint(text: String, center: Boolean = false) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = if (center) TextAlign.Center else TextAlign.Start,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun speechModelName(state: MainUiState): String {
+    val name = stringResource(
+        when (state.settings.activeModel) {
+            ModelSize.BASE -> R.string.model_name_base
+            ModelSize.SMALL -> R.string.model_name_small
+            ModelSize.SENSEVOICE -> R.string.model_name_sensevoice
+            ModelSize.TURBO -> R.string.model_name_turbo
+        },
+    )
+    return if (state.settings.autoModel) stringResource(R.string.model_name_auto, name) else name
+}
+
 /** "Start captions" / "Stop captions". Stop stays enabled for as long as `running` is true. */
 @Composable
 private fun PrimaryAction(running: Boolean, enabled: Boolean, onStart: () -> Unit, onStop: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
     val colors = if (running) {
-        ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error,
-            contentColor = MaterialTheme.colorScheme.onError,
-        )
+        ButtonDefaults.buttonColors(containerColor = scheme.error, contentColor = scheme.onError)
     } else {
-        ButtonDefaults.buttonColors()
+        ButtonDefaults.buttonColors(
+            disabledContainerColor = scheme.surfaceVariant,
+            disabledContentColor = scheme.onSurfaceVariant,
+        )
     }
     Button(
         onClick = if (running) onStop else onStart,
@@ -182,6 +324,12 @@ private fun PrimaryAction(running: Boolean, enabled: Boolean, onStart: () -> Uni
         colors = colors,
         modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.PrimaryButton),
     ) {
+        Icon(
+            painterResource(if (running) R.drawable.ic_stop else R.drawable.ic_caption),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(Spacing.Small))
         Text(
             stringResource(if (running) R.string.home_stop else R.string.home_start),
             style = MaterialTheme.typography.titleMedium,
@@ -221,5 +369,29 @@ private fun statusIcon(status: HomeStatus, notStarted: Boolean): Pair<ImageVecto
             HomeStatus.READY -> Icons.Filled.CheckCircle to scheme.primary
             HomeStatus.LISTENING -> Icons.Filled.PlayArrow to scheme.primary
         }
+    }
+}
+
+/** "Record the screen with captions": one switch, applied the next time captions start. */
+@Composable
+private fun RecordToggle(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val label = stringResource(R.string.home_record_label)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = Spacing.Target)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+    ) {
+        Column(Modifier.weight(1f).padding(horizontal = Spacing.Mini), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.home_record_helper),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }

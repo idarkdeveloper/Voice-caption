@@ -4,7 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.unit.sp
 
 /** System font; sizes follow the doc scale 12/14/16/20/24/32. */
-internal val CaptionlyTypography: Typography = Typography().let { base ->
+internal val TransCapTypography: Typography = Typography().let { base ->
     base.copy(
         headlineMedium = base.headlineMedium.copy(fontSize = 32.sp, lineHeight = 40.sp),
         headlineSmall = base.headlineSmall.copy(fontSize = 24.sp, lineHeight = 32.sp),

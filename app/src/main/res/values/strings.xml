@@ -1,6 +1,20 @@
 <resources>
-    <string name="app_name">Voice Caption</string>
+    <string name="app_name">TransCap</string>
+    <string name="langpack_channel_name">Language downloads</string>
+    <string name="langpack_title">Downloading language packs</string>
+    <string name="langpack_cancel">Cancel</string>
+    <string name="langpack_done">All language packs are downloaded</string>
+    <string name="langpack_failed">Download stopped: %1$s</string>
     <string name="capture_channel_name">Live captions</string>
+    <string name="capture_stopped_title">Captions stopped</string>
+    <string name="capture_stopped_by_android">Android ended the audio sharing. This can happen when another screen recording or capture starts. Open TransCap and press Start captions to continue.</string>
+    <string name="capture_stopped_unexpected">Audio capture stopped unexpectedly. Another app that records audio or the screen may have taken over. Open TransCap and press Start captions to continue.</string>
+    <string name="capture_notification_text_recording">Captioning and recording the screen</string>
+    <string name="record_failed">Couldn\'t record the screen. Captions still work</string>
+    <string name="record_saved_title">Recording saved</string>
+    <string name="record_saved_text">Saved to Movies/TransCap. Tap to watch it.</string>
+    <string name="home_record_label">Record the screen with captions</string>
+    <string name="home_record_helper">Saves a video with the captions on it to Movies/TransCap. Starts when you press Start captions. Choose \"Entire screen\" when Android asks, or the captions will not be in the video. Some apps show black in recordings.</string>
     <string name="capture_notification_title">Live captions are on</string>
     <string name="capture_notification_text">Captioning the sound playing on this phone</string>
     <string name="capture_action_stop">Stop</string>
@@ -10,6 +24,8 @@
     <string name="capture_error_model_missing">Download the speech model in the app first</string>
     <string name="capture_error_start_failed">Couldn\'t start captions. Please try again</string>
     <string name="capture_error_unexpected">Captions stopped because of an error</string>
+    <string name="caption_music">(music)</string>
+    <string name="capture_volume_off">Media volume is off. Turn it up a little so captions can hear the audio</string>
     <string name="capture_blocked">This app doesn\'t allow audio capture</string>
     <string name="capture_error_recognizer">Couldn\'t recognize speech. Try the other speech model in Settings, or re-download it.</string>
     <string name="capture_translation_failed">Translation failed; showing the original text.</string>
@@ -28,6 +44,14 @@
     <string name="language_film">Film language</string>
     <string name="language_captions">Captions in</string>
     <string name="language_choose">Choose %1$s</string>
+    <string name="language_auto">Auto-detect</string>
+    <string name="language_auto_helper">TransCap listens to the first sentences to find the film\'s language. Works best when captions are in English.</string>
+    <string name="language_search">Search languages</string>
+    <string name="language_section_phone">On this phone</string>
+    <string name="language_section_all">All languages</string>
+    <string name="language_downloaded">Downloaded</string>
+    <string name="language_not_downloaded">Not downloaded</string>
+    <string name="language_no_match">No language matches \"%1$s\"</string>
     <string name="language_swap">Swap film and caption languages</string>
 
     <!-- Onboarding -->
@@ -65,6 +89,16 @@
     <string name="home_reason_downloading">Wait for the download to finish.</string>
     <string name="home_reason_download_failed">Fix the download problem, then try again.</string>
     <string name="home_reason_setup">Finish setup to start.</string>
+    <string name="home_speech_model">Speech model: %1$s</string>
+    <string name="model_name_base">Whisper (Fast)</string>
+    <string name="model_name_small">Whisper (Accurate)</string>
+    <string name="model_name_sensevoice">SenseVoice</string>
+    <string name="model_name_turbo">Whisper Turbo (Filipino)</string>
+    <string name="storage_model_turbo">Filipino (turbo)</string>
+    <string name="model_name_turbo_short">Turbo</string>
+    <string name="model_name_auto">%1$s (Auto)</string>
+    <string name="home_running_title">Live captions are on</string>
+    <string name="home_running_body">Captions appear as people speak and may change as more words arrive.</string>
     <string name="home_consent_title">Start captions?</string>
     <string name="home_consent_body">Android will ask to record your screen. Captions only use the audio.</string>
 
@@ -72,6 +106,8 @@
     <string name="download_both">Download speech model (about %1$d MB) and language pack</string>
     <string name="download_model_only">Download speech model (about %1$d MB)</string>
     <string name="download_pack_only">Download language pack</string>
+    <string name="download_wifi_hint">Use Wi-Fi to avoid mobile data charges.</string>
+    <string name="download_cancel_note">Cancel stops the download. An unfinished speech model starts again next time.</string>
     <string name="download_action">Download</string>
     <string name="download_retry">Retry</string>
     <string name="download_cancel">Cancel download</string>
@@ -81,16 +117,50 @@
     <!-- Settings -->
     <string name="settings_preview">Preview</string>
     <string name="settings_preview_description">Caption preview: %1$s</string>
+    <string name="settings_move_hint">While captions are on, drag each caption box up or down to place it.</string>
+    <string name="settings_reset_positions">Reset positions</string>
+    <string name="settings_caption_box">Caption box</string>
+    <string name="settings_bilingual_helper">Adds a smaller box with the film\'s own language above the translation.</string>
     <string name="settings_size_label">Caption size</string>
+    <string name="settings_size_decrease">Make captions smaller</string>
+    <string name="settings_size_increase">Make captions larger</string>
     <string name="settings_size_value">%1$d sp</string>
     <string name="settings_opacity_label">Caption background</string>
     <string name="settings_opacity_value">%1$d%%</string>
     <string name="settings_bilingual">Show original text</string>
+    <string name="settings_colors">Caption colours</string>
+    <string name="settings_text_color">Text colour</string>
+    <string name="settings_plate_color">Background colour</string>
+    <string name="settings_color_hex_label">Custom colour (RRGGBB)</string>
+    <string name="settings_color_hex_error">Use six digits or letters A to F</string>
+    <string name="settings_contrast_warning">Warning: these colours are hard to tell apart. Captions may be difficult to read.</string>
+    <string name="color_selected">%1$s, selected</string>
+    <string name="color_white">White</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_cyan">Cyan</string>
+    <string name="color_green">Green</string>
+    <string name="color_light_grey">Light grey</string>
+    <string name="color_black">Black</string>
+    <string name="color_dark_grey">Dark grey</string>
+    <string name="color_navy">Navy</string>
+    <string name="color_purple">Purple</string>
+    <string name="color_brown">Brown</string>
     <string name="settings_model">Speech model</string>
-    <string name="settings_model_fast">Fast (base)</string>
-    <string name="settings_model_accurate">Accurate (small)</string>
+    <string name="settings_model_fast">Fast</string>
+    <string name="storage_model_fast">Fast (base)</string>
+    <string name="storage_model_accurate">Accurate (small)</string>
+    <string name="settings_model_accurate">Accurate</string>
+    <string name="settings_model_auto">Auto</string>
+    <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, Whisper Turbo (about 1 GB) for Filipino, and Whisper for other languages. For Korean or Chinese with English captions, long sentences also use Accurate when it is installed (not when SenseVoice is chosen on its own).</string>
+    <string name="settings_model_experimental">SenseVoice</string>
     <string name="settings_model_helper">Accurate uses more battery and may lag on older phones</string>
     <string name="settings_languages">Languages</string>
+    <string name="settings_offline_languages">Offline languages</string>
+    <string name="settings_offline_languages_helper">Download every translation language now so captions work without internet in any language.</string>
+    <string name="settings_offline_languages_action">Download all languages (about 1.7 GB)</string>
+    <string name="settings_offline_languages_confirm_title">Download all languages?</string>
+    <string name="settings_offline_languages_confirm_message">This downloads about 58 language packs, around 1.7 GB in total, and can use mobile data. Wi-Fi is recommended. You can cancel at any time and continue later.</string>
+    <string name="settings_diagnostics">Show speed and recognition stats in captions (test builds)</string>
     <string name="settings_storage">Storage</string>
     <string name="settings_storage_installed">Installed, about %1$d MB</string>
     <string name="settings_storage_not_installed">Not installed</string>
@@ -100,4 +170,5 @@
     <string name="settings_delete_message">Delete the %1$s speech model? You can download it again later.</string>
     <string name="model_name_fast">Fast</string>
     <string name="model_name_accurate">Accurate</string>
+    <string name="model_name_experimental">SenseVoice</string>
 </resources>

@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioManager
@@ -23,19 +24,26 @@ import android.widget.Toast
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.voicecaption.R
+import com.voicecaption.asr.AutoRecognizer
+import com.voicecaption.asr.HybridRecognizer
 import com.voicecaption.asr.HttpUrlConnectionDownloader
 import com.voicecaption.asr.ModelManager
 import com.voicecaption.asr.ModelSelector
+import com.voicecaption.asr.SenseVoiceLocal
+import com.voicecaption.asr.SpeechRecognizer
 import com.voicecaption.asr.WhisperLocal
 import com.voicecaption.audio.AudioCapture
 import com.voicecaption.audio.CaptureBlockedDetector
+import com.voicecaption.recording.ScreenRecorder
 import com.voicecaption.caption.CaptionStabilizer
 import com.voicecaption.core.ModelSize
 import com.voicecaption.overlay.OverlayRenderer
 import com.voicecaption.pipeline.CaptionPipeline
 import com.voicecaption.pipeline.PipelineError
 import com.voicecaption.translate.MlKitTranslator
+import com.voicecaption.settings.SupportedLanguages
 import com.voicecaption.vad.SileroVad
+import com.voicecaption.vad.VadConfig
 import com.voicecaption.vad.VadSegmenter
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -86,9 +94,10 @@ class CaptureService : Service() {
     private var projection: MediaProjection? = null
     private var projectionCallback: MediaProjection.Callback? = null
     private var capture: AudioCapture? = null
+    private var recorder: ScreenRecorder? = null
     private var pipeline: CaptionPipeline? = null
     private var vad: SileroVad? = null
-    private var whisper: WhisperLocal? = null
+    private var whisper: SpeechRecognizer? = null
     private var translator: MlKitTranslator? = null
     private var oneTimeMessageShown = false
     private val recognizerFailures = RecognizerFailureTracker()
@@ -138,9 +147,9 @@ class CaptureService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val notification = Notification.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.capture_notification_title))
-            .setContentText(getString(R.string.capture_notification_text))
+            .setContentText(getString(if (ServiceDependencies.settings().recordScreen) R.string.capture_notification_text_recording else R.string.capture_notification_text))
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(null, getString(R.string.capture_action_stop), stopIntent).build(),
@@ -159,7 +168,7 @@ class CaptureService : Service() {
         try {
             val settings = ServiceDependencies.settings()
             val renderer = OverlayRenderer(this).also { overlay = it }
-            val modelSize = pickInstalledModel(settings.modelSize)
+            val modelSize = pickInstalledModel(settings.activeModel)
             val check = StartupCheck.evaluate(
                 overlayAllowed = renderer.canDrawOverlays(),
                 recordAudioGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
@@ -197,19 +206,60 @@ class CaptureService : Service() {
             }
             projectionCallback = callback
             proj.registerCallback(callback, mainHandler)
+            if (settings.recordScreen) startRecording(proj)
 
             val vadInstance = SileroVad(this).also { vad = it }
-            val whisperInstance = WhisperLocal(File(ServiceDependencies.modelsDir(this), modelSize.dirName()), modelSize)
-                .also { whisper = it }
             val translatorInstance = MlKitTranslator(this).also { translator = it }
+            val sourceAuto = SupportedLanguages.isAuto(settings.sourceLang)
+            // English captions for a non-English film: Whisper translates the speech directly, which
+            // measured clearly more accurate than transcribing and then translating with ML Kit.
+            // With auto-detect the film may be in any language, so Whisper translates whenever the
+            // captions are English (for English speech that is a no-op).
+            // Turbo (Filipino) has no translate mode worth using: it transcribes, then ML Kit translates.
+            val whisperTranslates = modelSize != ModelSize.SENSEVOICE && modelSize != ModelSize.TURBO &&
+                settings.targetLang.lowercase().startsWith("en") &&
+                (sourceAuto || !settings.sourceLang.lowercase().startsWith("en"))
+            val modelsDir = ServiceDependencies.modelsDir(this)
+            val modelDir = File(modelsDir, modelSize.dirName())
+            // Korean or Chinese with English captions: long finished sentences go to Whisper small (translating
+            // directly) when it is installed, also when "Accurate" is the chosen size for Auto-detect; an explicit
+            // "SenseVoice" choice stays SenseVoice only. See [HybridRecognizer].
+            val smallForLongKorean = (sourceAuto || settings.sourceLang.lowercase().let { it.startsWith("ko") || it.startsWith("zh") }) &&
+                settings.targetLang.lowercase().startsWith("en") &&
+                ModelManager(modelsDir, HttpUrlConnectionDownloader()).isInstalled(ModelSize.SMALL)
+            fun senseVoiceFor(dir: File): SpeechRecognizer {
+                val sense = SenseVoiceLocal(dir)
+                return if (smallForLongKorean) {
+                    HybridRecognizer(sense, WhisperLocal(File(modelsDir, ModelSize.SMALL.dirName()), ModelSize.SMALL, translateToEnglish = true))
+                } else {
+                    sense
+                }
+            }
+            val whisperInstance: SpeechRecognizer = when {
+                modelSize == ModelSize.SENSEVOICE -> if (settings.autoModel) senseVoiceFor(modelDir) else SenseVoiceLocal(modelDir)
+                sourceAuto -> AutoRecognizer(
+                    whisper = WhisperLocal(modelDir, modelSize, whisperTranslates),
+                    // SenseVoice is used for Chinese, Japanese, Korean and Cantonese when it is installed.
+                    senseVoice = if (ModelManager(modelsDir, HttpUrlConnectionDownloader()).isInstalled(ModelSize.SENSEVOICE)) {
+                        senseVoiceFor(File(modelsDir, ModelSize.SENSEVOICE.dirName()))
+                    } else {
+                        null
+                    },
+                    translatorReady = { source, target -> translatorInstance.isReady(source, target) },
+                    targetLang = { ServiceDependencies.settings().targetLang },
+                )
+                else -> WhisperLocal(modelDir, modelSize, whisperTranslates)
+            }
+            whisper = whisperInstance
             val pipe = CaptionPipeline(
-                segmenter = VadSegmenter(vadInstance),
+                segmenter = VadSegmenter(vadInstance, VadConfig(partialEveryMs = if (modelSize == ModelSize.SENSEVOICE) PARTIAL_FAST_MS else PARTIAL_EVERY_MS)),
                 recognizer = whisperInstance,
                 translator = translatorInstance,
-                stabilizer = CaptionStabilizer(),
+                stabilizer = CaptionStabilizer(maxLines = 1), // a new sentence replaces the old one
                 settings = { ServiceDependencies.settings() },
                 scope = scope,
                 clock = SystemClock::elapsedRealtime,
+                musicLabel = getString(R.string.caption_music),
             ).also { pipeline = it }
             val audio = AudioCapture(proj).also { capture = it }
 
@@ -217,7 +267,7 @@ class CaptureService : Service() {
             launchCollectors(pipe, audio, mon, renderer)
             CaptureStatus.set(true)
             scope.launch {
-                if (!translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
+                if (!sourceAuto && !whisperTranslates && !translatorInstance.isReady(settings.sourceLang, settings.targetLang)) onMain { showOneTimeMessage(R.string.capture_translation_missing) }
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -237,6 +287,29 @@ class CaptureService : Service() {
         }
         scope.launch(Dispatchers.Main) {
             pipe.errors.collect { onPipelineError(it) }
+        }
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            val modelLabel = when (val r = whisper) {
+                is SenseVoiceLocal -> "SENSEVOICE"
+                is HybridRecognizer -> "SENSEVOICE+SMALL"
+                is AutoRecognizer -> "AUTO"
+                is WhisperLocal -> r.size.name + if (r.outputLanguage != null) "+translate" else ""
+                else -> "?"
+            }
+            scope.launch(Dispatchers.Main) {
+                pipe.stats.collect { st ->
+                    val raw = if (st.lastRaw.isEmpty()) "(empty)" else if (st.lastNoise) "(filtered) ${st.lastRaw}" else st.lastRaw
+                    if (!ServiceDependencies.settings().showDiagnostics) {
+                        renderer.setDebugLine(null)
+                        return@collect
+                    }
+                    renderer.setDebugLine(
+                        "${modelLabel}${(whisper as? AutoRecognizer)?.let { " ${it.engine}" }.orEmpty()} lang ${st.lastLang.ifEmpty { "?" }} " +
+                            "cut ${st.cut} drop ${st.dropped} | seg ${st.lastSegmentMs}ms " +
+                            "asr ${st.lastDecodeMs}ms lag ${st.lastLagMs}ms\nraw: $raw",
+                    )
+                }
+            }
         }
         // Capture loop on the audio thread (flowOn(IO) inside AudioCapture).
         scope.launch {
@@ -292,9 +365,51 @@ class CaptureService : Service() {
                 when (captureFailureAction(currentState(), tornDown)) {
                     CaptureFailureAction.TEARDOWN -> teardown()
                     CaptureFailureAction.IGNORE -> Unit
-                    CaptureFailureAction.FAIL -> fail(R.string.capture_error_unexpected)
+                    CaptureFailureAction.FAIL -> {
+                        Log.w("CaptureService", "Audio capture failed while running")
+                        postStoppedNotification(R.string.capture_stopped_unexpected)
+                        fail(R.string.capture_error_unexpected)
+                    }
                 }
             }
+        }
+    }
+
+    /** Starts the screen recording on the same projection; a failure only costs the recording, never the captions. */
+    private fun startRecording(proj: MediaProjection) {
+        val metrics = resources.displayMetrics
+        val r = ScreenRecorder(this) { AppVisibility.visible }
+        r.start(proj, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
+            .onSuccess { recorder = r }
+            .onFailure { showOneTimeMessage(R.string.record_failed) }
+    }
+
+    /** Finishes the recording on a worker thread (it blocks briefly) and tells the user where it is. */
+    private fun finishRecording() {
+        val r = recorder ?: return
+        recorder = null
+        Thread {
+            val saved = runCatching { r.stop() }.getOrNull()
+            if (saved != null) postRecordingSavedNotification(saved)
+        }.start()
+    }
+
+    private fun postRecordingSavedNotification(saved: android.net.Uri) {
+        runCatching {
+            val view = PendingIntent.getActivity(
+                this,
+                2,
+                Intent(Intent.ACTION_VIEW).setDataAndType(saved, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val notification = Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(getString(R.string.record_saved_title))
+                .setContentText(getString(R.string.record_saved_text))
+                .setContentIntent(view)
+                .setAutoCancel(true)
+                .build()
+            getSystemService(NotificationManager::class.java).notify(RECORDING_NOTIFICATION_ID, notification)
         }
     }
 
@@ -303,7 +418,13 @@ class CaptureService : Service() {
     /** Main thread: reacts to a state the monitor reached while processing frames. */
     private fun onState(state: ServiceState) {
         when (state) {
-            ServiceState.BLOCKED -> overlay?.showMessage(getString(R.string.capture_blocked))
+            ServiceState.BLOCKED -> {
+                // Playback capture only hears what the phone plays: a muted media volume looks the
+                // same as an app that blocks capture, so say which one is likely.
+                val am = getSystemService(AudioManager::class.java)
+                val muted = am.getStreamVolume(AudioManager.STREAM_MUSIC) == 0 || am.isStreamMute(AudioManager.STREAM_MUSIC)
+                overlay?.showMessage(getString(if (muted) R.string.capture_volume_off else R.string.capture_blocked))
+            }
             ServiceState.RUNNING -> pipeline?.let { overlay?.render(it.captions.value, ServiceDependencies.settings()) }
             ServiceState.STOPPED -> if (!failing) teardown() // fail() owns the delayed teardown
             else -> Unit
@@ -312,7 +433,35 @@ class CaptureService : Service() {
 
     /** Main thread: an externally triggered event (projection stopped). */
     private fun onEvent(event: ServiceEvent) {
+        if (event == ServiceEvent.ProjectionStopped && !tornDown && !failing) {
+            // Android ended the audio sharing itself (another screen recording or capture started, the
+            // user tapped Stop on the system sharing chip, or the system reclaimed it). Say so, because
+            // captions otherwise just vanish.
+            Log.w("CaptureService", "MediaProjection stopped by the system")
+            postStoppedNotification(R.string.capture_stopped_by_android)
+        }
         if (monitor?.dispatch(event) == ServiceState.STOPPED && !failing) teardown()
+    }
+
+    /** A normal, tappable notification that explains why captions ended and opens the app to start again. */
+    private fun postStoppedNotification(textRes: Int) {
+        runCatching {
+            val open = PendingIntent.getActivity(
+                this,
+                1,
+                Intent(this, com.voicecaption.ui.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val notification = Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(getString(R.string.capture_stopped_title))
+                .setContentText(getString(textRes))
+                .setStyle(Notification.BigTextStyle().bigText(getString(textRes)))
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .build()
+            getSystemService(NotificationManager::class.java).notify(STOPPED_NOTIFICATION_ID, notification)
+        }
     }
 
     /** Shows [messageRes] on the overlay the first time only; later calls (any message) are ignored. */
@@ -367,6 +516,7 @@ class CaptureService : Service() {
         try {
             runCatching { monitor?.dispatch(ServiceEvent.UserStop) }
             runCatching { capture?.stop() }
+            runCatching { finishRecording() }
             // Flush first; the native closes below only start after this has returned or thrown.
             runCatching { pipeline?.stop() }
             runCatching { scope.cancel() }
@@ -416,8 +566,14 @@ class CaptureService : Service() {
     private fun Intent.getParcelableExtraCompat(): Intent? = getParcelableExtra(EXTRA_DATA)
 
     companion object {
+        /** While someone is speaking, show a provisional caption refreshed this often (Whisper). */
+        private const val PARTIAL_EVERY_MS = 1500
+
+        /** SenseVoice decodes in about 100 ms, so it can refresh the provisional caption faster. */
+        private const val PARTIAL_FAST_MS = 800
+
         /** Closes the native resources in order, each independently, on a non-daemon background thread. */
-        private fun closeNativeOffMain(whisper: WhisperLocal?, vad: SileroVad?, translator: MlKitTranslator?) {
+        private fun closeNativeOffMain(whisper: SpeechRecognizer?, vad: SileroVad?, translator: MlKitTranslator?) {
             Thread({
                 runCatching { whisper?.close() }
                 runCatching { vad?.close() }
@@ -431,6 +587,8 @@ class CaptureService : Service() {
         private const val EXTRA_DATA = "data"
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1
+        private const val STOPPED_NOTIFICATION_ID = 4
+        private const val RECORDING_NOTIFICATION_ID = 5
         private const val MESSAGE_LINGER_MS = 4000L
         private const val PROJECTION_GRACE_MS = 300L
 

@@ -1,6 +1,7 @@
 package com.voicecaption.pipeline
 
 import com.voicecaption.asr.SpeechRecognizer
+import com.voicecaption.asr.Transcript
 import com.voicecaption.caption.CaptionStabilizer
 import com.voicecaption.core.Caption
 import com.voicecaption.core.CaptionSettings
@@ -8,6 +9,7 @@ import com.voicecaption.core.PcmFrame
 import com.voicecaption.core.SpeechSegment
 import com.voicecaption.translate.Translator
 import com.voicecaption.translate.TranslatorNotReadyException
+import com.voicecaption.vad.VadConfig
 import com.voicecaption.vad.VadSegmenter
 import com.voicecaption.vad.VoiceActivityDetector
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +37,9 @@ class CaptionPipelineTest {
     private val fakeVad = VoiceActivityDetector { it[0] > 0f }
 
     private class FakeRecognizer(
+        override val outputLanguage: String? = null,
+        private val detectedLanguage: String? = null,
+        private val event: String? = null,
         private val reply: suspend (SpeechSegment, String) -> String,
     ) : SpeechRecognizer {
         val segmentStarts = mutableListOf<Long>()
@@ -44,6 +49,8 @@ class CaptionPipelineTest {
             languages += language
             return reply(segment, language)
         }
+        override suspend fun recognize(segment: SpeechSegment, language: String) =
+            Transcript(transcribe(segment, language), detectedLanguage, event)
         override fun close() = Unit
     }
 
@@ -51,8 +58,10 @@ class CaptionPipelineTest {
         private val reply: suspend (String) -> String = { "T($it)" },
     ) : Translator {
         var calls = 0
+        val sources = mutableListOf<String>()
         override suspend fun translate(text: String, sourceLang: String, targetLang: String): String {
             calls++
+            sources += sourceLang
             return reply(text)
         }
         override suspend fun isReady(sourceLang: String, targetLang: String) = true
@@ -69,9 +78,10 @@ class CaptionPipelineTest {
         val translator: FakeTranslator,
         val clock: () -> Long,
         var settings: CaptionSettings = CaptionSettings(sourceLang = "es", targetLang = "en"),
+        vadConfig: VadConfig = VadConfig(),
     ) {
         val pipeline = CaptionPipeline(
-            segmenter = VadSegmenter(fakeVad),
+            segmenter = VadSegmenter(fakeVad, vadConfig),
             recognizer = recognizer,
             translator = translator,
             stabilizer = CaptionStabilizer(),
@@ -86,6 +96,8 @@ class CaptionPipelineTest {
             pipeline.onFrame(PcmFrame(samples, frameIndex++ * frameMs))
         }
 
+        fun feedSilence(frames: Int = 13) = repeat(frames) { frame(false) }
+
         /** 10 speech frames (320 ms) and, if [close], 13 silent frames that close the segment. */
         fun feedSpeech(close: Boolean = true) {
             repeat(10) { frame(true) }
@@ -97,7 +109,8 @@ class CaptionPipelineTest {
         recognizer: FakeRecognizer,
         translator: FakeTranslator = FakeTranslator(),
         settings: CaptionSettings = CaptionSettings(sourceLang = "es", targetLang = "en"),
-    ) = Rig(backgroundScope, recognizer, translator, { currentTime }, settings)
+        vadConfig: VadConfig = VadConfig(),
+    ) = Rig(backgroundScope, recognizer, translator, { currentTime }, settings, vadConfig)
 
     private fun TestScope.collectCaptions(rig: Rig): MutableList<List<Caption>> {
         val seen = mutableListOf<List<Caption>>()
@@ -151,6 +164,22 @@ class CaptionPipelineTest {
     }
 
     @Test
+    fun englishLineInAFilipinoShowIsNotTranslatedAndFillerIsDroppedBeforeTranslating() = runTest {
+        val settings = CaptionSettings(sourceLang = "tl", targetLang = "en")
+        val english = rig(FakeRecognizer(detectedLanguage = "en") { _, _ -> "Okay, 3 minutes." }, settings = settings)
+        english.feedSpeech()
+        runCurrent()
+        assertEquals(0, english.translator.calls)
+        assertEquals("Okay, 3 minutes.", english.pipeline.captions.value.single().translatedText)
+
+        val filipino = rig(FakeRecognizer(detectedLanguage = "tl") { _, _ -> "Opo, last 3 minutes na lang po." }, settings = settings)
+        filipino.feedSpeech()
+        runCurrent()
+        assertEquals(1, filipino.translator.calls)
+        assertEquals("T(oo, last 3 minutes na lang.)", filipino.pipeline.captions.value.single().translatedText)
+    }
+
+    @Test
     fun regionalVariantOfSameLanguageSkipsTranslation() = runTest {
         val r = rig(
             FakeRecognizer { _, _ -> "color" },
@@ -177,15 +206,16 @@ class CaptionPipelineTest {
     }
 
     @Test
-    fun blankAndBracketTagTranscriptsShowNothing() = runTest {
-        val outputs = ArrayDeque(listOf("", " ", "[Music]", "(applause)", "♪", "[BLANK_AUDIO]", " [Music] (laughs) ", "..."))
+    fun blankAndNonMusicTagTranscriptsShowNothing() = runTest {
+        // Music tags and note symbols now show "(music)"; see the music tests below.
+        val outputs = ArrayDeque(listOf("", " ", "(applause)", "[BLANK_AUDIO]", " [Laughter] (laughs) ", "..."))
         val r = rig(FakeRecognizer { _, _ -> outputs.removeFirst() })
         val errors = collectErrors(r)
-        repeat(8) {
+        repeat(6) {
             r.feedSpeech()
             runCurrent()
         }
-        assertEquals(8, r.recognizer.segmentStarts.size)
+        assertEquals(6, r.recognizer.segmentStarts.size)
         assertTrue(r.pipeline.captions.value.isEmpty())
         assertEquals(0, r.translator.calls)
         assertTrue(errors.isEmpty())
@@ -355,5 +385,157 @@ class CaptionPipelineTest {
         runCurrent()
         assertTrue(r.recognizer.segmentStarts.isEmpty())
         assertTrue(r.pipeline.captions.value.isEmpty())
+    }
+
+    @Test
+    fun recognizerThatAlreadyOutputsTargetLanguageSkipsTranslation() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "hello there" }, translator, CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        val seen = collectCaptions(r)
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(0, translator.calls)
+        assertEquals("hello there", seen.last().single().translatedText)
+        assertEquals("hello there", r.pipeline.stats.value.lastRaw)
+    }
+
+    @Test
+    fun finalSegmentReplacesItsPartialInPlace() = runTest {
+        val r = rig(
+            FakeRecognizer { seg, _ -> if (seg.partial) "partial text" else "final text" },
+            vadConfig = VadConfig(partialEveryMs = 500),
+        )
+        repeat(6) { r.feedSpeech(close = false) } // 60 speech frames, still speaking
+        runCurrent()
+        val provisional = r.pipeline.captions.value
+        assertEquals(1, provisional.size)
+        assertEquals("partial text", provisional[0].sourceText)
+
+        r.feedSilence() // the sentence ends: the final segment closes
+        runCurrent()
+        val shown = r.pipeline.captions.value
+        assertEquals(1, shown.size)
+        assertEquals(provisional[0].id, shown[0].id)
+        assertEquals("T(final text)", shown[0].translatedText)
+    }
+
+    @Test
+    fun soundEffectNotesAreRemovedFromRecognizedText() = runTest {
+        val tr = FakeTranslator()
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "(The sound of" }, tr, CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertTrue(r.pipeline.captions.value.isEmpty()) // an unfinished note is dropped entirely
+
+        val r2 = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "I'm sorry (The sound of" }, tr, CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r2.feedSpeech()
+        runCurrent()
+        assertEquals("I'm sorry", r2.pipeline.captions.value.single().translatedText)
+    }
+
+    private val autoSettings = CaptionSettings(sourceLang = "auto", targetLang = "en")
+
+    @Test
+    fun autoDetectShowsTheOriginalWithoutTranslatingWhileTheLanguageIsUnknown() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(detectedLanguage = null) { _, _ -> "konnichiwa" }, translator, autoSettings)
+        r.feedSpeech()
+        runCurrent()
+        val caption = r.pipeline.captions.value.single()
+        assertEquals("konnichiwa", caption.sourceText)
+        assertNull(caption.translatedText)
+        assertEquals(0, translator.calls)
+    }
+
+    @Test
+    fun autoDetectTranslatesFromTheDetectedLanguage() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(detectedLanguage = "ja") { _, _ -> "konnichiwa" }, translator, autoSettings)
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("ja"), translator.sources)
+        assertEquals("T(konnichiwa)", r.pipeline.captions.value.single().translatedText)
+    }
+
+    @Test
+    fun autoDetectWithARecognizerThatAlreadyOutputsEnglishNeedsNoTranslation() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(outputLanguage = "en", detectedLanguage = null) { _, _ -> "hello" }, translator, autoSettings)
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(0, translator.calls)
+        assertEquals("hello", r.pipeline.captions.value.single().translatedText)
+    }
+
+    @Test
+    fun anExplicitLanguageIsUnaffectedByWhatTheRecognizerReports() = runTest {
+        val translator = FakeTranslator()
+        val r = rig(FakeRecognizer(detectedLanguage = "ja") { _, _ -> "hola" }, translator, CaptionSettings(sourceLang = "es", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("es"), translator.sources)
+    }
+
+    private fun TestScope.visibleTexts(r: Rig) = r.pipeline.captions.value.map { it.translatedText ?: it.sourceText }
+
+    @Test
+    fun whisperMusicTagsShowAMusicCaption() = runTest {
+        for (tag in listOf("[Music]", "(upbeat music)", "[MUSIC PLAYING]", "♪", "♪♪", "(música)")) {
+            val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> tag }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+            r.feedSpeech()
+            runCurrent()
+            assertEquals(tag, listOf("(music)"), visibleTexts(r))
+        }
+    }
+
+    @Test
+    fun senseVoiceBackgroundMusicEventWithNoWordsShowsAMusicCaption() = runTest {
+        val r = rig(FakeRecognizer(event = "bgm") { _, _ -> "" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("(music)"), visibleTexts(r))
+    }
+
+    @Test
+    fun wordsOverBackgroundMusicAreCaptionedAsWordsNotAsMusic() = runTest {
+        val r = rig(FakeRecognizer(outputLanguage = "en", event = "bgm") { _, _ -> "Let's go" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("Let's go"), visibleTexts(r))
+    }
+
+    @Test
+    fun singingWithWordsIsShownAsTextNotAsMusic() = runTest {
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "♪ la la la ♪" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        r.feedSpeech()
+        runCurrent()
+        assertEquals(listOf("♪ la la la ♪"), visibleTexts(r))
+    }
+
+    @Test
+    fun otherSoundTagsAreStillDropped() = runTest {
+        for (tag in listOf("[Applause]", "(laughs)", "[BLANK_AUDIO]")) {
+            val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> tag }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+            r.feedSpeech()
+            runCurrent()
+            assertTrue(tag, r.pipeline.captions.value.isEmpty())
+        }
+    }
+
+    @Test
+    fun continuousMusicKeepsASingleCaption() = runTest {
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> "[Music]" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        repeat(3) { r.feedSpeech() }
+        runCurrent()
+        assertEquals(listOf("(music)"), visibleTexts(r))
+    }
+
+    @Test
+    fun speechAfterMusicIsShownNextToTheMusicCaption() = runTest {
+        var n = 0
+        val r = rig(FakeRecognizer(outputLanguage = "en") { _, _ -> if (n++ == 0) "[Music]" else "Hello" }, FakeTranslator(), CaptionSettings(sourceLang = "ja", targetLang = "en"))
+        repeat(2) { r.feedSpeech() }
+        runCurrent()
+        assertEquals(listOf("(music)", "Hello"), visibleTexts(r))
     }
 }

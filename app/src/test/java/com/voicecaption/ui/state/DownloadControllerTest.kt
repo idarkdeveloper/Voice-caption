@@ -236,4 +236,43 @@ class DownloadControllerTest {
         runCurrent()
         assertEquals(DownloadState.Done, c.state.value)
     }
+
+    @Test
+    fun allLanguagesDownloadsEveryMissingPackExceptInstalledOnes() = runTest {
+        translator.ready += "es" to "en"
+        translator.ready += "fr" to "en"
+        val c = controller()
+        val seen = record(c)
+        c.startAllLanguages()
+        runCurrent()
+
+        assertEquals(DownloadState.Done, c.state.value)
+        val total = com.voicecaption.settings.SupportedLanguages.codes.size - 1 // all but English
+        assertEquals(total - 2, translator.prepareCalls)
+        assertEquals(0, installer.installCalls)
+        val progress = seen.filterIsInstance<DownloadState.Downloading>().map { it.progress }
+        assertEquals(progress.sorted(), progress)
+        assertTrue(seen.filterIsInstance<DownloadState.Downloading>().any { it.label.contains("language packs") })
+    }
+
+    @Test
+    fun allLanguagesStopsOnFailureAndRetryContinues() = runTest {
+        var calls = 0
+        translator.behavior = { progress ->
+            calls++
+            if (calls == 3) Result.failure(UnknownHostException("offline")) else { progress(true); progress(false); Result.success(Unit) }
+        }
+        val c = controller()
+        c.startAllLanguages()
+        runCurrent()
+        assertTrue(c.state.value is DownloadState.Failed)
+        assertEquals(3, translator.prepareCalls)
+
+        c.retry()
+        runCurrent()
+        assertEquals(DownloadState.Done, c.state.value)
+        // The two packs that succeeded before the failure are not fetched again.
+        val total = com.voicecaption.settings.SupportedLanguages.codes.size - 1
+        assertEquals(total + 1, translator.prepareCalls)
+    }
 }

@@ -29,29 +29,48 @@ import kotlinx.coroutines.withContext
 class WhisperLocal(
     private val modelDir: File,
     val size: ModelSize,
+    /** True: Whisper's "translate" task, which outputs English whatever language is spoken. */
+    private val translateToEnglish: Boolean = false,
 ) : SpeechRecognizer {
+    override val outputLanguage: String? get() = if (translateToEnglish) "en" else null
+
     private val lock = Any()
     private var recognizer: OfflineRecognizer? = null
     private var currentLanguage: String? = null
     private var closed = false
 
-    override suspend fun transcribe(segment: SpeechSegment, language: String): String {
+    override suspend fun transcribe(segment: SpeechSegment, language: String): String = recognize(segment, language).text
+
+    override suspend fun recognize(segment: SpeechSegment, language: String): Transcript {
         check(!synchronized(lock) { closed }) { "WhisperLocal is closed" }
-        if (segment.samples.isEmpty()) return ""
-        val lang = normalizeWhisperLanguage(language)
+        if (segment.samples.isEmpty()) return Transcript("")
+        // Filipino speech is full of English words; forcing Tagalog turns those into nonsense, so Whisper
+        // detects each sentence itself (see AutoRecognizer for the same rule on "auto"). Music and
+        // noise then get "detected" as Malay, Spanish and the like and come back as invented text, so
+        // anything detected outside Filipino/English is decoded again as Filipino.
+        val requested = normalizeWhisperLanguage(language)
+        val lang = if (requested == "tl") "" else requested
         return withContext(Dispatchers.Default) {
             synchronized(lock) {
                 check(!closed) { "WhisperLocal is closed" }
-                val rec = recognizerFor(lang)
-                val stream = rec.createStream()
-                try {
-                    stream.acceptWaveform(segment.samples, SAMPLE_RATE)
-                    rec.decode(stream)
-                    rec.getResult(stream).text.trim()
-                } finally {
-                    stream.release()
-                }
+                var t = decode(segment, lang)
+                if (requested == "tl" && t.language != null && t.language !in FILIPINO_OR_ENGLISH) t = decode(segment, "tl")
+                if (RecognizedText.isHallucination(t.text)) Transcript("", t.language, t.event) else t
             }
+        }
+    }
+
+    /** One native decode. Must be called holding [lock]. */
+    private fun decode(segment: SpeechSegment, lang: String): Transcript {
+        val rec = recognizerFor(lang)
+        val stream = rec.createStream()
+        try {
+            stream.acceptWaveform(segment.samples, SAMPLE_RATE)
+            rec.decode(stream)
+            val result = rec.getResult(stream)
+            return Transcript(result.text.trim(), normalizeDetectedLanguage(result.lang))
+        } finally {
+            stream.release()
         }
     }
 
@@ -91,7 +110,7 @@ class WhisperLocal(
                     encoder = files.encoder,
                     decoder = files.decoder,
                     language = language,
-                    task = "transcribe",
+                    task = if (translateToEnglish) "translate" else "transcribe",
                 ),
                 tokens = files.tokens,
                 numThreads = whisperThreads(Runtime.getRuntime().availableProcessors()),
@@ -102,6 +121,7 @@ class WhisperLocal(
     }
 
     private companion object {
+        val FILIPINO_OR_ENGLISH = setOf("tl", "en")
         const val SAMPLE_RATE = 16_000
     }
 }

@@ -50,6 +50,26 @@ class MainViewModelTest {
     }
 
     @Test
+    fun downloadingAllLanguagesDoesNotBlockStart() = runTest {
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        translator.behavior = { gate.await(); Result.success(Unit) }
+        val packs = DownloadController(installer, translator, backgroundScope)
+        val vm = MainViewModel(
+            store, readiness, DownloadController(installer, translator, backgroundScope),
+            running, backgroundScope, languagePacks = packs,
+        ).also { it.refreshPermissions(granted) }
+        runCurrent()
+        vm.downloadAllLanguages()
+        runCurrent()
+
+        val s = vm.uiState.value
+        assertTrue(s.languagePacks is DownloadState.Downloading)
+        assertEquals(DownloadState.Idle, s.download)
+        assertTrue(s.canStart) // captions can start while the packs download in the background
+        gate.complete(Unit)
+    }
+
+    @Test
     fun readyWhenEverythingPresent() = runTest {
         val vm = vm()
         runCurrent()
@@ -155,10 +175,20 @@ class MainViewModelTest {
     @Test
     fun unsupportedSourceLanguageIsIgnored() = runTest {
         val vm = vm()
-        vm.onSourceLanguage("auto")
         vm.onSourceLanguage("zz")
+        vm.onSourceLanguage("")
         runCurrent()
         assertEquals("en", vm.uiState.value.settings.sourceLang)
+    }
+
+    @Test
+    fun autoDetectCanBeChosenForTheFilmLanguageButNeverForCaptions() = runTest {
+        val vm = vm()
+        vm.onSourceLanguage("auto")
+        vm.onTargetLanguage("auto")
+        runCurrent()
+        assertEquals("auto", vm.uiState.value.settings.sourceLang)
+        assertEquals("en", vm.uiState.value.settings.targetLang)
     }
 
     @Test

@@ -32,6 +32,21 @@ class ModelCatalog(private val entries: Map<ModelSize, List<ModelFile>>) {
         private const val TOKENS_SHA256 = "b34b360dbb493e781e479794586d661700670d65564001f23024971d1f2fa126"
         private const val TOKENS_BYTES = 816_730L
 
+        // Whisper large-v3-turbo (int8) for Filipino: https://huggingface.co/csukuangfj/sherpa-onnx-whisper-turbo
+        // Pinned commit; SHA-256 values match the Hugging Face LFS metadata and were verified by downloading
+        // and decoding a Filipino clip through sherpa-onnx. The tokens file is the same as base/small.
+        private const val TURBO_REV = "2ca6ff69fc878651b770880507669577ac41c2ff"
+        private const val TURBO_URL = "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-turbo/resolve/$TURBO_REV"
+
+        // Experimental SenseVoice-Small (zh/en/ja/ko/yue), int8, from the sherpa-onnx author:
+        //   https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+        // Pinned to this commit; SHA-256 values match the Hugging Face LFS metadata and were re-verified
+        // by downloading. The 2025-09-09 repositories were tried and produced wrong output (Chinese
+        // characters for Japanese speech), so this 2024-07-17 release is the one used.
+        private const val SENSE_REV = "2365baeacb507f821a0c8120fcee3d484dba7a07"
+        private const val SENSE_URL =
+            "https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/$SENSE_REV"
+
         // On-disk names are neutral (encoder/decoder/tokens) so the recognizer config is size-agnostic.
         val DEFAULT = ModelCatalog(
             mapOf(
@@ -56,6 +71,27 @@ class ModelCatalog(private val entries: Map<ModelSize, List<ModelFile>>) {
                         "acad50b5c782696e91b55914cc5ab4f756f1532f76e22aa6fc615f39fb69a8ee", 262_226_114L,
                     ),
                     ModelFile("tokens.txt", "$SMALL_URL/small-tokens.txt", TOKENS_SHA256, TOKENS_BYTES),
+                ),
+                ModelSize.TURBO to listOf(
+                    ModelFile(
+                        "encoder.int8.onnx", "$TURBO_URL/turbo-encoder.int8.onnx",
+                        "b02dcdf54f348741e93fe732b67d933c8dcb6735655f710640143081db38878b", 674_716_297L,
+                    ),
+                    ModelFile(
+                        "decoder.int8.onnx", "$TURBO_URL/turbo-decoder.int8.onnx",
+                        "20accd02388482eb3a46bd615631adfdc85e1eb2c7db9ea3f02a40ffe6b81547", 361_080_764L,
+                    ),
+                    ModelFile("tokens.txt", "$TURBO_URL/turbo-tokens.txt", TOKENS_SHA256, TOKENS_BYTES),
+                ),
+                ModelSize.SENSEVOICE to listOf(
+                    ModelFile(
+                        "model.int8.onnx", "$SENSE_URL/model.int8.onnx",
+                        "c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51", 239_233_841L,
+                    ),
+                    ModelFile(
+                        "tokens.txt", "$SENSE_URL/tokens.txt",
+                        "f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc", 315_894L,
+                    ),
                 ),
             ),
         )

@@ -127,10 +127,11 @@ class ModelManagerTest {
 
 class ModelCatalogTest {
     @Test
-    fun realCatalogHasThreeFilesPerSizeWithPinnedUrlsAndHashes() {
+    fun realCatalogHasPinnedUrlsAndHashesForEverySize() {
         for (size in ModelSize.values()) {
             val files = ModelCatalog.DEFAULT.files(size)
-            assertEquals(3, files.size)
+            // Whisper: encoder + decoder + tokens; SenseVoice: one model + tokens.
+            assertEquals(if (size == ModelSize.SENSEVOICE) 2 else 3, files.size)
             for (f in files) {
                 assertTrue(f.sha256.matches(Regex("[0-9a-f]{64}")))
                 assertTrue(f.sizeBytes > 0)

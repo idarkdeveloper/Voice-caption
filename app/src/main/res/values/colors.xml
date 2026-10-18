@@ -2,7 +2,8 @@
 <resources>
     <!-- Window background before Compose draws: matches the light theme background. -->
     <color name="window_background">#FFFFFF</color>
-    <!-- Launcher icon (provisional palette: slate 950 and electric blue 300). -->
+    <!-- Launcher icon: slate 950 background, electric blue 300 translation plate, amber original plate. -->
     <color name="ic_launcher_background">#090D18</color>
     <color name="ic_launcher_plate">#6092FF</color>
+    <color name="ic_launcher_amber">#FFB21A</color>
 </resources>

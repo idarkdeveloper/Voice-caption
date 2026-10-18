@@ -20,6 +20,13 @@ object OverlayMath {
     fun clampOffsetY(requested: Int, min: Int, max: Int): Int =
         if (max < min) min else requested.coerceIn(min, max)
 
+    /**
+     * Distance from the bottom edge for a plate that sits directly above another one: the lower
+     * plate's own offset, plus its height (0 when it is not shown), plus the gap between them.
+     */
+    fun stackedOffset(lowerOffset: Int, lowerHeight: Int, gap: Int): Int =
+        lowerOffset + lowerHeight.coerceAtLeast(0) + gap.coerceAtLeast(0)
+
     /** Maximum plate width in pixels: 90% of the screen width, floored (integer math, no float error). */
     fun maxPlateWidthPx(screenWidthPx: Int): Int =
         (screenWidthPx.coerceAtLeast(0).toLong() * 9 / 10).toInt()

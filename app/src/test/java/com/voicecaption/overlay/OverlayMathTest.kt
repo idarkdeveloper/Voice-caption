@@ -22,4 +22,15 @@ class OverlayMathTest {
         assertEquals(0, OverlayMath.maxPlateWidthPx(1))
     }
     @Test fun maxWidthNeverNegative() = assertEquals(0, OverlayMath.maxPlateWidthPx(-5))
+
+    @Test
+    fun stackedOffsetPutsOnePlateAboveAnotherWithAGap() {
+        assertEquals(48 + 120 + 6, OverlayMath.stackedOffset(lowerOffset = 48, lowerHeight = 120, gap = 6))
+    }
+
+    @Test
+    fun stackedOffsetIgnoresAHiddenLowerPlate() {
+        assertEquals(48 + 6, OverlayMath.stackedOffset(lowerOffset = 48, lowerHeight = 0, gap = 6))
+        assertEquals(48 + 6, OverlayMath.stackedOffset(lowerOffset = 48, lowerHeight = -5, gap = 6))
+    }
 }

@@ -2,6 +2,7 @@ package com.voicecaption.ui.state
 
 import com.voicecaption.asr.ModelManager
 import com.voicecaption.core.ModelSize
+import com.voicecaption.settings.SupportedLanguages
 import com.voicecaption.translate.Translator
 import java.io.File
 import java.net.ConnectException
@@ -65,7 +66,7 @@ class DownloadController(
     private val translator: Translator,
     private val scope: CoroutineScope,
 ) {
-    private data class Request(val size: ModelSize, val source: String, val target: String)
+    private data class Request(val size: ModelSize, val source: String, val target: String, val allLanguages: Boolean = false)
 
     private val lock = Any()
     private val _state = MutableStateFlow<DownloadState>(DownloadState.Idle)
@@ -78,6 +79,13 @@ class DownloadController(
 
     /** Downloads what [size] and the [source] to [target] pair still need. Ignored while downloading. */
     fun start(size: ModelSize, source: String, target: String) = launch(Request(size, source, target))
+
+    /**
+     * Downloads every language pack that is not on the device yet (English is the pivot and is
+     * built in, so each other language is one pack). Packs already installed are skipped, so after
+     * a failure or cancel a new run continues where it stopped. Ignored while downloading.
+     */
+    fun startAllLanguages() = launch(Request(ModelSize.BASE, "en", "en", allLanguages = true))
 
     /** Re-runs the last request after a failure; ignored in any other state. */
     fun retry() {
@@ -120,9 +128,20 @@ class DownloadController(
         synchronized(lock) { if (generation == token) _state.value = next }
     }
 
+    private suspend fun executeAllLanguages(report: (Float, String) -> Unit): Result<Unit> {
+        val codes = SupportedLanguages.codes.filter { it != "en" }
+        val missing = codes.filter { !translator.isReady(it, "en") }
+        missing.forEachIndexed { index, code ->
+            report(index.toFloat() / missing.size, "Downloading language packs (${index + 1} of ${missing.size})")
+            translator.prepare(code, "en") { }.onFailure { return Result.failure(it) }
+        }
+        return Result.success(Unit)
+    }
+
     private suspend fun execute(req: Request, report: (Float, String) -> Unit): Result<Unit> {
+        if (req.allLanguages) return executeAllLanguages(report)
         val needModel = !installer.isInstalled(req.size)
-        val needPack = !translator.isReady(req.source, req.target)
+        val needPack = !SupportedLanguages.isAuto(req.source) && !translator.isReady(req.source, req.target)
         val modelWeight = if (needModel && needPack) MODEL_SHARE else if (needModel) 1f else 0f
         if (needModel) {
             report(0f, LABEL_MODEL)

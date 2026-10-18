@@ -20,6 +20,9 @@ interface Translator {
      * are returned as [Result.failure]; cancellation is rethrown.
      */
     suspend fun prepare(sourceLang: String, targetLang: String, onProgress: (Boolean) -> Unit): Result<Unit>
+
+    /** Language codes whose pack is on the device (English is built in and not listed). */
+    suspend fun downloadedLanguages(): Set<String> = emptySet()
 }
 
 /** [Translator.translate] was called before the pair's language packs were downloaded. */

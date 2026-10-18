@@ -44,8 +44,8 @@ class SettingsRepositoryTest {
         val file = tmp.newFile("b.preferences_pb")
         val scope = CoroutineScope(Job())
         val repo = SettingsRepository(store(scope, file))
-        repo.update { it.copy(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f) }
-        val expected = CaptionSettings(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f)
+        repo.update { it.copy(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f, autoModel = false) }
+        val expected = CaptionSettings(targetLang = "es", bilingual = true, modelSize = ModelSize.SMALL, fontSizeSp = 24, opacity = 0.9f, autoModel = false)
         assertEquals(expected, repo.settings.first())
 
         scope.cancel()
@@ -89,5 +89,51 @@ class SettingsRepositoryTest {
                 throw IOException("disk")
         }
         assertEquals(CaptionSettings(), SettingsRepository(failing).current())
+    }
+
+    @Test
+    fun coloursArePersistedAndAlwaysOpaque() = runTest {
+        val file = tmp.newFile("colours.preferences_pb")
+        val scope = CoroutineScope(Job())
+        val repo = SettingsRepository(store(scope, file))
+        repo.update { it.copy(textColor = 0xFFFFE45C.toInt(), plateColor = 0x000B1A33) } // alpha dropped on save
+        scope.cancel()
+        scope.coroutineContext[Job]!!.join()
+
+        val got = SettingsRepository(store(backgroundScope, file)).current()
+        assertEquals(0xFFFFE45C.toInt(), got.textColor)
+        assertEquals(0xFF0B1A33.toInt(), got.plateColor)
+    }
+
+    @Test
+    fun diagnosticsAreOffByDefaultAndPersisted() = runTest {
+        val file = tmp.newFile("diag.preferences_pb")
+        val scope = CoroutineScope(Job())
+        val repo = SettingsRepository(store(scope, file))
+        assertEquals(false, repo.current().showDiagnostics)
+        repo.update { it.copy(showDiagnostics = true) }
+        scope.cancel()
+        scope.coroutineContext[Job]!!.join()
+
+        assertEquals(true, SettingsRepository(store(backgroundScope, file)).current().showDiagnostics)
+    }
+
+    @Test
+    fun captionPositionsArePersistedClampedAndCanBeCleared() = runTest {
+        val file = tmp.newFile("pos.preferences_pb")
+        val scope = CoroutineScope(Job())
+        val repo = SettingsRepository(store(scope, file))
+        assertEquals(null, repo.current().translationOffsetDp)
+        repo.update { it.copy(translationOffsetDp = 220, originalOffsetDp = -5) }
+        val saved = repo.current()
+        assertEquals(220, saved.translationOffsetDp)
+        assertEquals(0, saved.originalOffsetDp) // clamped
+        repo.update { it.copy(translationOffsetDp = null, originalOffsetDp = null) }
+        scope.cancel()
+        scope.coroutineContext[Job]!!.join()
+
+        val got = SettingsRepository(store(backgroundScope, file)).current()
+        assertEquals(null, got.translationOffsetDp)
+        assertEquals(null, got.originalOffsetDp)
     }
 }

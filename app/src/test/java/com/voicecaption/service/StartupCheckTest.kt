@@ -22,9 +22,15 @@ class StartupCheckTest {
     @Test fun `model missing`() =
         assertEquals(StartupResult.Failed(StartupProblem.MODEL_MISSING), eval(model = false))
 
-    @Test fun `blank or auto source language`() {
-        for (l in listOf("", "  ", "auto", "AUTO", " Auto ")) {
+    @Test fun `blank source language`() {
+        for (l in listOf("", "  ")) {
             assertEquals(l, StartupResult.Failed(StartupProblem.SOURCE_LANGUAGE), eval(lang = l))
+        }
+    }
+
+    @Test fun `auto-detect is a valid source language`() {
+        for (l in listOf("auto", "AUTO", " Auto ")) {
+            assertEquals(l, StartupResult.Ok, eval(lang = l))
         }
     }
 

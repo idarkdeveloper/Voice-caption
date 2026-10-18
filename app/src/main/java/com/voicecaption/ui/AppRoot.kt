@@ -21,7 +21,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voicecaption.asr.ModelCatalog
 import com.voicecaption.core.ModelSize
+import com.voicecaption.overlay.OverlayRenderer
 import com.voicecaption.service.CaptureService
+import com.voicecaption.service.LanguagePackService
 import com.voicecaption.ui.permissions.Permissions
 import com.voicecaption.ui.screens.HomeActions
 import com.voicecaption.ui.screens.HomeScreen
@@ -133,7 +135,7 @@ fun AppRoot(vm: MainViewModel) {
         Screen.HOME -> HomeScreen(
             state = state,
             notStarted = notStarted,
-            speechModelMegabytes = megabytes.getValue(state.settings.modelSize),
+            speechModelMegabytes = megabytes.getValue(state.settings.activeModel),
             actions = HomeActions(
                 onOpenSettings = { screen = Screen.SETTINGS },
                 onSourceLanguage = vm::onSourceLanguage,
@@ -141,12 +143,13 @@ fun AppRoot(vm: MainViewModel) {
                 onSwapLanguages = swapLanguages,
                 onStartConfirmed = {
                     notStarted = false
-                    projectionLauncher.launch(Permissions.projectionIntent(context))
+                    projectionLauncher.launch(Permissions.projectionIntent(context, entireScreen = state.settings.recordScreen))
                 },
                 onStop = { CaptureService.stop(context) },
                 onDownload = vm::startDownloads,
                 onRetryDownload = vm::retryDownloads,
                 onCancelDownload = vm::cancelDownloads,
+                onRecordScreen = vm::onRecordScreen,
             ),
         )
         Screen.SETTINGS -> SettingsScreen(
@@ -157,11 +160,22 @@ fun AppRoot(vm: MainViewModel) {
                 onFontSize = vm::onFontSize,
                 onOpacity = vm::onOpacity,
                 onBilingual = vm::onBilingual,
+                onResetPositions = { OverlayRenderer.resetPositions() },
+                onTextColor = vm::onTextColor,
+                onPlateColor = vm::onPlateColor,
                 onModelSize = vm::onModelSize,
+                onAutoModel = vm::onAutoModel,
                 onSourceLanguage = vm::onSourceLanguage,
                 onTargetLanguage = vm::onTargetLanguage,
                 onSwapLanguages = swapLanguages,
                 onDeleteModel = vm::deleteModel,
+                onShowDiagnostics = vm::onShowDiagnostics,
+                onDownloadAllLanguages = {
+                    vm.downloadAllLanguages()
+                    LanguagePackService.start(context)
+                },
+                onRetryDownload = vm::retryLanguagePacks,
+                onCancelDownload = vm::cancelLanguagePacks,
             ),
         )
     }

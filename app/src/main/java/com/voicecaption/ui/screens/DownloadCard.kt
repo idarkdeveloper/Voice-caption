@@ -7,7 +7,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,11 +51,12 @@ fun DownloadCard(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(Modifier.padding(Spacing.Margin), verticalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
             when (download) {
-                is DownloadState.Downloading -> DownloadingContent(download, onCancel)
+                is DownloadState.Downloading -> DownloadingContent(download, needs, onCancel)
                 is DownloadState.Failed -> FailedContent(download, onRetry)
                 else -> IdleContent(needs, onDownload)
             }
@@ -59,37 +65,80 @@ fun DownloadCard(
 }
 
 @Composable
+private fun needsTitle(needs: DownloadNeeds): String = when {
+    needs.modelMegabytes != null && needs.needsPack -> stringResource(R.string.download_both, needs.modelMegabytes)
+    needs.modelMegabytes != null -> stringResource(R.string.download_model_only, needs.modelMegabytes)
+    else -> stringResource(R.string.download_pack_only)
+}
+
+@Composable
 private fun IdleContent(needs: DownloadNeeds, onDownload: () -> Unit) {
-    val text = when {
-        needs.modelMegabytes != null && needs.needsPack -> stringResource(R.string.download_both, needs.modelMegabytes)
-        needs.modelMegabytes != null -> stringResource(R.string.download_model_only, needs.modelMegabytes)
-        else -> stringResource(R.string.download_pack_only)
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Mini)) {
+        Text(needsTitle(needs), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.download_wifi_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
-    Text(text, style = MaterialTheme.typography.bodyLarge)
     Button(onClick = onDownload, modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target)) {
         Text(stringResource(R.string.download_action))
     }
 }
 
 @Composable
-private fun DownloadingContent(download: DownloadState.Downloading, onCancel: () -> Unit) {
+private fun DownloadingContent(download: DownloadState.Downloading, needs: DownloadNeeds, onCancel: () -> Unit) {
     val percent = (download.progress.coerceIn(0f, 1f) * 100).toInt()
     val progressDescription = stringResource(R.string.download_progress_description)
-    Text(
-        download.label,
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Mini)) {
+        Text(needsTitle(needs), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.download_wifi_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
         LinearProgressIndicator(
             progress = { download.progress.coerceIn(0f, 1f) },
             modifier = Modifier.weight(1f).semantics { contentDescription = progressDescription },
+            trackColor = MaterialTheme.colorScheme.background,
+            gapSize = 0.dp,
+            drawStopIndicator = {},
         )
-        Text(stringResource(R.string.download_percent, percent), style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.download_percent, percent), style = MaterialTheme.typography.titleSmall)
     }
-    TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = Spacing.Target)) {
-        Text(stringResource(R.string.download_cancel))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(
+                Icons.Filled.Refresh,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                download.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        TextButton(onClick = onCancel, modifier = Modifier.heightIn(min = Spacing.Target)) {
+            Text(stringResource(R.string.download_cancel))
+        }
     }
+    Text(
+        stringResource(R.string.download_cancel_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

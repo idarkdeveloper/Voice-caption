@@ -33,8 +33,19 @@ object Permissions {
     fun recordAudioGranted(context: Context): Boolean = granted(context, Manifest.permission.RECORD_AUDIO)
 
     /** The system screen-capture consent dialog intent; start it for a result every session. */
-    fun projectionIntent(context: Context): Intent =
-        context.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent()
+    /**
+     * The system screen-capture consent. With [entireScreen] (used when the screen is also recorded)
+     * Android 14+ offers only "entire screen": in its "one app" mode the recording would show that app
+     * alone, without the caption boxes TransCap draws over it.
+     */
+    fun projectionIntent(context: Context, entireScreen: Boolean = false): Intent {
+        val manager = context.getSystemService(MediaProjectionManager::class.java)
+        return if (entireScreen && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else {
+            manager.createScreenCaptureIntent()
+        }
+    }
 
     /** All three flags now, for `MainViewModel.refreshPermissions` (call from `onResume`). */
     fun current(context: Context): PermissionState = PermissionState(

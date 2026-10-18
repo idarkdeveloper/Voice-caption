@@ -65,10 +65,10 @@ private val LightColors: ColorScheme = lightColorScheme(
 
 /** App theme: follows the system dark/light setting; no dynamic color (the palette is the brand). */
 @Composable
-fun CaptionlyTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun TransCapTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = CaptionlyTypography,
+        typography = TransCapTypography,
         content = content,
     )
 }

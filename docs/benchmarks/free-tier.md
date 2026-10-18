@@ -43,10 +43,10 @@ one `clip` per (model, clip) (transcript, error metric and rate, transcribe/tran
 mean error rate). Every line is under 3000 characters; transcripts are cut at 400 characters
 (`transcriptTruncated: true`).
 
-Primary: logcat tag `CaptionlyBench`, one entry per record between `BENCH_JSON_BEGIN` and
+Primary: logcat tag `TransCapBench`, one entry per record between `BENCH_JSON_BEGIN` and
 `BENCH_JSON_END` entries. Extract it right after the run (the logcat buffer is finite):
 
-    adb logcat -d -v raw -s CaptionlyBench | sed -n '/BENCH_JSON_BEGIN/,/BENCH_JSON_END/{//!p}' > bench-results.jsonl
+    adb logcat -d -v raw -s TransCapBench | sed -n '/BENCH_JSON_BEGIN/,/BENCH_JSON_END/{//!p}' > bench-results.jsonl
 
 `-v raw` removes the timestamp/pid/level prefix; `{//!p}` drops the two marker lines. Check it
 parses:
