@@ -248,7 +248,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
             }
 
             OfflineLanguagesSection(
-                download = state.download,
+                download = state.languagePacks,
                 onDownloadAll = actions.onDownloadAllLanguages,
                 onRetry = actions.onRetryDownload,
                 onCancel = actions.onCancelDownload,

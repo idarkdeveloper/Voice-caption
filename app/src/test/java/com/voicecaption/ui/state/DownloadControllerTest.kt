@@ -275,18 +275,4 @@ class DownloadControllerTest {
         val total = com.voicecaption.settings.SupportedLanguages.codes.size - 1
         assertEquals(total + 1, translator.prepareCalls)
     }
-
-    @Test
-    fun changingLanguagesKeepsAllLanguagesRunButDropsSingleRun() = runTest {
-        val gate = CompletableDeferred<Unit>()
-        translator.behavior = { gate.await(); Result.success(Unit) }
-        val c = controller()
-        c.startAllLanguages()
-        runCurrent()
-        c.cancelUnlessAllLanguages()
-        assertTrue(c.state.value is DownloadState.Downloading)
-        c.cancel()
-        assertEquals(DownloadState.Idle, c.state.value)
-        gate.complete(Unit)
-    }
 }

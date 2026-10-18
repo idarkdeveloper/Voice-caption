@@ -130,6 +130,24 @@ fun HomeScreen(
                     detail = stringResource(R.string.home_speech_model, speechModelName(state)),
                 )
 
+                (state.languagePacks as? DownloadState.Downloading)?.let { packs ->
+                    Column(
+                        modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                        verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+                    ) {
+                        Text(
+                            packs.label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { packs.progress.coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        )
+                    }
+                }
+
                 if (state.running) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),

@@ -87,12 +87,6 @@ class DownloadController(
      */
     fun startAllLanguages() = launch(Request(ModelSize.BASE, "en", "en", allLanguages = true))
 
-    /** Cancels like [cancel], except a run started by [startAllLanguages] (changing the pair must not drop it). */
-    fun cancelUnlessAllLanguages() {
-        val bulk = synchronized(lock) { request?.allLanguages == true && _state.value is DownloadState.Downloading }
-        if (!bulk) cancel()
-    }
-
     /** Re-runs the last request after a failure; ignored in any other state. */
     fun retry() {
         val last = synchronized(lock) { if (_state.value is DownloadState.Failed) request else null }

@@ -60,6 +60,8 @@ data class MainUiState(
     /** Languages with a pack on the device (English is built in). Shown in the language picker. */
     val downloadedLanguages: Set<String> = setOf("en"),
     val download: DownloadState = DownloadState.Idle,
+    /** "Download all languages" progress; independent of [download] so it never blocks Start. */
+    val languagePacks: DownloadState = DownloadState.Idle,
     /** Captioning is running right now. */
     val running: Boolean = false,
     val nextStep: SetupStep = SetupStep.OVERLAY_PERMISSION,

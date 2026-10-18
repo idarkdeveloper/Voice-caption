@@ -169,8 +169,8 @@ fun AppRoot(vm: MainViewModel) {
                 onDeleteModel = vm::deleteModel,
                 onShowDiagnostics = vm::onShowDiagnostics,
                 onDownloadAllLanguages = vm::downloadAllLanguages,
-                onRetryDownload = vm::retryDownloads,
-                onCancelDownload = vm::cancelDownloads,
+                onRetryDownload = vm::retryLanguagePacks,
+                onCancelDownload = vm::cancelLanguagePacks,
             ),
         )
     }

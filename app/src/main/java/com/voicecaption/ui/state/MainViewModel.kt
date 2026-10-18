@@ -41,6 +41,8 @@ class MainViewModel(
     private val captureRunning: StateFlow<Boolean>,
     private val scope: CoroutineScope,
     private val onError: (Throwable) -> Unit = {},
+    /** Runs "Download all languages" apart from [downloads] so it never blocks Start. */
+    private val languagePacks: DownloadController? = null,
 ) : ViewModel() {
     private val permissions = MutableStateFlow(PermissionState())
     private val refreshTick = MutableStateFlow(0)
@@ -60,14 +62,11 @@ class MainViewModel(
 
     /** Everything the screens render; see [MainUiState]. */
     val uiState: StateFlow<MainUiState> = combine(
-        store.settings,
-        permissions,
-        snapshots,
-        downloads.state,
-        captureRunning,
-    ) { settings, perms, snapshot, download, running ->
-        reduceUiState(settings, perms, snapshot, download, running)
-    }.stateIn(scope, SharingStarted.Eagerly, reduceUiState(store.settings.value, PermissionState(), null, DownloadState.Idle, false))
+        combine(store.settings, permissions, snapshots, downloads.state, captureRunning) { settings, perms, snapshot, download, running ->
+            reduceUiState(settings, perms, snapshot, download, running)
+        },
+        languagePacks?.state ?: MutableStateFlow<DownloadState>(DownloadState.Idle),
+    ) { base, packs -> base.copy(languagePacks = packs) }.stateIn(scope, SharingStarted.Eagerly, reduceUiState(store.settings.value, PermissionState(), null, DownloadState.Idle, false))
 
     init {
         // A download or failure belongs to one request; changing the pair or size drops it.
@@ -75,11 +74,15 @@ class MainViewModel(
             store.settings.map { Triple(it.activeModel, it.sourceLang, it.targetLang) }
                 .distinctUntilChanged()
                 .drop(1)
-                .collect { downloads.cancelUnlessAllLanguages() }
+                .collect { downloads.cancel() }
         }
         // Re-check what is installed whenever a download run ends.
         scope.launch {
             downloads.state.collect { if (it is DownloadState.Done || it is DownloadState.Failed) refreshTick.value++ }
+        }
+        scope.launch {
+            // Packs finish one by one; refresh so the language sheet shows each as downloaded.
+            languagePacks?.state?.collect { refreshTick.value++ }
         }
     }
 
@@ -126,10 +129,16 @@ class MainViewModel(
     }
 
     /** Downloads every language pack that is still missing (about 1.7 GB in total). */
-    fun downloadAllLanguages() = downloads.startAllLanguages()
+    fun downloadAllLanguages() = languagePacks?.startAllLanguages() ?: Unit
 
     /** Retries the last failed download. */
     fun retryDownloads() = downloads.retry()
+
+    /** Retries "Download all languages" after a failure (finished packs are skipped). */
+    fun retryLanguagePacks() = languagePacks?.retry() ?: Unit
+
+    /** Stops "Download all languages"; packs already downloaded stay. */
+    fun cancelLanguagePacks() = languagePacks?.cancel() ?: Unit
 
     /** Cancels a running download. */
     fun cancelDownloads() = downloads.cancel()

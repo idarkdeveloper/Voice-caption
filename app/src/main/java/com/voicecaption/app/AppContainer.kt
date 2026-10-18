@@ -83,6 +83,14 @@ class AppContainer(context: Context) {
         DownloadController(modelManager.asInstaller(), translator, appScope)
     }
 
+    /**
+     * A second controller used only for "Download all languages". It has its own state, so a long
+     * download of packs never blocks Start, the Home status or the normal one-pair download.
+     */
+    val languagePackController: DownloadController by lazy {
+        DownloadController(modelManager.asInstaller(), translator, appScope)
+    }
+
     /** [SettingsStore] over [settingsState] and [settingsRepository]. */
     val settingsStore: SettingsStore by lazy {
         object : SettingsStore {
@@ -123,6 +131,7 @@ class AppContainer(context: Context) {
                 store = settingsStore,
                 readiness = readinessSource,
                 downloads = downloadController,
+                languagePacks = languagePackController,
                 captureRunning = CaptureStatus.running,
                 scope = CoroutineScope(
                     SupervisorJob() + Dispatchers.Default +
