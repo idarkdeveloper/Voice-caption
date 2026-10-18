@@ -139,7 +139,7 @@
     <string name="storage_model_accurate">Accurate (small)</string>
     <string name="settings_model_accurate">Accurate</string>
     <string name="settings_model_auto">Auto</string>
-    <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, and Whisper for other languages.</string>
+    <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, and Whisper for other languages. For Korean with English captions, long sentences also use Accurate when it is installed.</string>
     <string name="settings_model_experimental">SenseVoice</string>
     <string name="settings_model_helper">Accurate uses more battery and may lag on older phones</string>
     <string name="settings_languages">Languages</string>

@@ -78,7 +78,7 @@ class AutoRecognizer(
             // it sometimes decoded Korean as Japanese. Chinese stays on auto so it can tell Mandarin from Cantonese.
             val told = locked in TOLD_LANGUAGES
             val t = senseVoice.recognize(segment, if (told) locked else AUTO_LANGUAGE)
-            currentOutputLanguage = null
+            currentOutputLanguage = senseVoice.outputLanguage // null unless a long line was translated by a helper
             // SenseVoice names Cantonese "yue"; ML Kit knows it as Chinese.
             return Transcript(t.text, translationCode(if (told) locked else (t.language ?: locked)), t.event)
         }

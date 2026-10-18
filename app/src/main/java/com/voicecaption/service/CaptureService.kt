@@ -24,6 +24,7 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.voicecaption.R
 import com.voicecaption.asr.AutoRecognizer
+import com.voicecaption.asr.HybridRecognizer
 import com.voicecaption.asr.HttpUrlConnectionDownloader
 import com.voicecaption.asr.ModelManager
 import com.voicecaption.asr.ModelSelector
@@ -215,13 +216,26 @@ class CaptureService : Service() {
                 (sourceAuto || !settings.sourceLang.lowercase().startsWith("en"))
             val modelsDir = ServiceDependencies.modelsDir(this)
             val modelDir = File(modelsDir, modelSize.dirName())
+            // Korean with English captions: long finished sentences go to Whisper small (translating
+            // directly) when it is installed and the speech model is on Auto; see [HybridRecognizer].
+            val smallForLongKorean = settings.autoModel && (sourceAuto || settings.sourceLang.lowercase().startsWith("ko")) &&
+                settings.targetLang.lowercase().startsWith("en") &&
+                ModelManager(modelsDir, HttpUrlConnectionDownloader()).isInstalled(ModelSize.SMALL)
+            fun senseVoiceFor(dir: File): SpeechRecognizer {
+                val sense = SenseVoiceLocal(dir)
+                return if (smallForLongKorean) {
+                    HybridRecognizer(sense, WhisperLocal(File(modelsDir, ModelSize.SMALL.dirName()), ModelSize.SMALL, translateToEnglish = true))
+                } else {
+                    sense
+                }
+            }
             val whisperInstance: SpeechRecognizer = when {
-                modelSize == ModelSize.SENSEVOICE -> SenseVoiceLocal(modelDir)
+                modelSize == ModelSize.SENSEVOICE -> if (settings.autoModel) senseVoiceFor(modelDir) else SenseVoiceLocal(modelDir)
                 sourceAuto -> AutoRecognizer(
                     whisper = WhisperLocal(modelDir, modelSize, whisperTranslates),
                     // SenseVoice is used for Chinese, Japanese, Korean and Cantonese when it is installed.
                     senseVoice = if (ModelManager(modelsDir, HttpUrlConnectionDownloader()).isInstalled(ModelSize.SENSEVOICE)) {
-                        SenseVoiceLocal(File(modelsDir, ModelSize.SENSEVOICE.dirName()))
+                        senseVoiceFor(File(modelsDir, ModelSize.SENSEVOICE.dirName()))
                     } else {
                         null
                     },
@@ -271,6 +285,7 @@ class CaptureService : Service() {
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
             val modelLabel = when (val r = whisper) {
                 is SenseVoiceLocal -> "SENSEVOICE"
+                is HybridRecognizer -> "SENSEVOICE+SMALL"
                 is AutoRecognizer -> "AUTO"
                 is WhisperLocal -> r.size.name + if (r.outputLanguage != null) "+translate" else ""
                 else -> "?"
