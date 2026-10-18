@@ -23,6 +23,23 @@ npm run build
 | `MAX_STREAM_MS` | 3300000 | |
 | `SUPPORTED_LANGUAGES` | `config/deepgram-languages.json` when present | comma separated list |
 
+## Container image
+
+```
+docker build -t captions-rt .
+docker run --rm -p 8080:8080 -e DEEPGRAM_API_KEY=... -e JWT_SECRET=... captions-rt
+```
+
+Multi-stage build (Node 22 slim), runs as the non-root `node` user, `PORT` from the environment, no
+secrets baked in (`.dockerignore` excludes env files, tests and tools).
+
+Verification record: the build environment had the Docker CLI but no Docker daemon, so
+`docker build` was **not** run. Instead the alternative path was used: `npm run build && node
+dist/main.js` with dummy `DEEPGRAM_API_KEY`/`JWT_SECRET`, then `curl /healthz` and `/readyz` both
+returned 200. The runtime layout of the image (`dist/`, `config/`, production-only `node_modules`)
+was also reproduced in a scratch directory with `npm ci --omit=dev` and `/healthz` returned 200 there.
+The first real `docker build` happens in Task 10 (`deploy-region.sh` uses Cloud Build).
+
 ## Real Deepgram contract run
 
 The vendor contract suite also runs against real Deepgram when `DEEPGRAM_API_KEY` is set and
