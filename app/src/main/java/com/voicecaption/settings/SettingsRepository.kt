@@ -28,6 +28,7 @@ internal object SettingsKeys {
     val modelSize = stringPreferencesKey("model_size")
     val autoModel = booleanPreferencesKey("auto_model")
     val showDiagnostics = booleanPreferencesKey("show_diagnostics")
+    val recordScreen = booleanPreferencesKey("record_screen")
     val translationOffsetDp = intPreferencesKey("translation_offset_dp")
     val originalOffsetDp = intPreferencesKey("original_offset_dp")
     val textColor = intPreferencesKey("text_color")
@@ -72,6 +73,7 @@ private fun Preferences.toSettings(): CaptionSettings {
             textColor = this[SettingsKeys.textColor] ?: d.textColor,
             plateColor = this[SettingsKeys.plateColor] ?: d.plateColor,
             showDiagnostics = this[SettingsKeys.showDiagnostics] ?: d.showDiagnostics,
+            recordScreen = this[SettingsKeys.recordScreen] ?: d.recordScreen,
             translationOffsetDp = this[SettingsKeys.translationOffsetDp],
             originalOffsetDp = this[SettingsKeys.originalOffsetDp],
         ),
@@ -102,6 +104,7 @@ class SettingsRepository(private val store: DataStore<Preferences>) {
             prefs[SettingsKeys.textColor] = next.textColor
             prefs[SettingsKeys.plateColor] = next.plateColor
             prefs[SettingsKeys.showDiagnostics] = next.showDiagnostics
+            prefs[SettingsKeys.recordScreen] = next.recordScreen
             next.translationOffsetDp?.let { prefs[SettingsKeys.translationOffsetDp] = it } ?: prefs.remove(SettingsKeys.translationOffsetDp)
             next.originalOffsetDp?.let { prefs[SettingsKeys.originalOffsetDp] = it } ?: prefs.remove(SettingsKeys.originalOffsetDp)
         }

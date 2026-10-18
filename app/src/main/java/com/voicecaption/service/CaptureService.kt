@@ -34,6 +34,7 @@ import com.voicecaption.asr.SpeechRecognizer
 import com.voicecaption.asr.WhisperLocal
 import com.voicecaption.audio.AudioCapture
 import com.voicecaption.audio.CaptureBlockedDetector
+import com.voicecaption.recording.ScreenRecorder
 import com.voicecaption.caption.CaptionStabilizer
 import com.voicecaption.core.ModelSize
 import com.voicecaption.overlay.OverlayRenderer
@@ -93,6 +94,7 @@ class CaptureService : Service() {
     private var projection: MediaProjection? = null
     private var projectionCallback: MediaProjection.Callback? = null
     private var capture: AudioCapture? = null
+    private var recorder: ScreenRecorder? = null
     private var pipeline: CaptionPipeline? = null
     private var vad: SileroVad? = null
     private var whisper: SpeechRecognizer? = null
@@ -147,7 +149,7 @@ class CaptureService : Service() {
         val notification = Notification.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.capture_notification_title))
-            .setContentText(getString(R.string.capture_notification_text))
+            .setContentText(getString(if (ServiceDependencies.settings().recordScreen) R.string.capture_notification_text_recording else R.string.capture_notification_text))
             .setOngoing(true)
             .addAction(
                 Notification.Action.Builder(null, getString(R.string.capture_action_stop), stopIntent).build(),
@@ -204,6 +206,7 @@ class CaptureService : Service() {
             }
             projectionCallback = callback
             proj.registerCallback(callback, mainHandler)
+            if (settings.recordScreen) startRecording(proj)
 
             val vadInstance = SileroVad(this).also { vad = it }
             val translatorInstance = MlKitTranslator(this).also { translator = it }
@@ -371,6 +374,44 @@ class CaptureService : Service() {
         }
     }
 
+    /** Starts the screen recording on the same projection; a failure only costs the recording, never the captions. */
+    private fun startRecording(proj: MediaProjection) {
+        val metrics = resources.displayMetrics
+        val r = ScreenRecorder(this)
+        r.start(proj, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
+            .onSuccess { recorder = r }
+            .onFailure { showOneTimeMessage(R.string.record_failed) }
+    }
+
+    /** Finishes the recording on a worker thread (it blocks briefly) and tells the user where it is. */
+    private fun finishRecording() {
+        val r = recorder ?: return
+        recorder = null
+        Thread {
+            val saved = runCatching { r.stop() }.getOrNull()
+            if (saved != null) postRecordingSavedNotification(saved)
+        }.start()
+    }
+
+    private fun postRecordingSavedNotification(saved: android.net.Uri) {
+        runCatching {
+            val view = PendingIntent.getActivity(
+                this,
+                2,
+                Intent(Intent.ACTION_VIEW).setDataAndType(saved, "video/mp4").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+            val notification = Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(getString(R.string.record_saved_title))
+                .setContentText(getString(R.string.record_saved_text))
+                .setContentIntent(view)
+                .setAutoCancel(true)
+                .build()
+            getSystemService(NotificationManager::class.java).notify(RECORDING_NOTIFICATION_ID, notification)
+        }
+    }
+
     private fun currentState(): ServiceState = monitor?.state ?: ServiceState.STOPPED
 
     /** Main thread: reacts to a state the monitor reached while processing frames. */
@@ -474,6 +515,7 @@ class CaptureService : Service() {
         try {
             runCatching { monitor?.dispatch(ServiceEvent.UserStop) }
             runCatching { capture?.stop() }
+            runCatching { finishRecording() }
             // Flush first; the native closes below only start after this has returned or thrown.
             runCatching { pipeline?.stop() }
             runCatching { scope.cancel() }
@@ -545,6 +587,7 @@ class CaptureService : Service() {
         private const val CHANNEL_ID = "capture"
         private const val NOTIFICATION_ID = 1
         private const val STOPPED_NOTIFICATION_ID = 4
+        private const val RECORDING_NOTIFICATION_ID = 5
         private const val MESSAGE_LINGER_MS = 4000L
         private const val PROJECTION_GRACE_MS = 300L
 

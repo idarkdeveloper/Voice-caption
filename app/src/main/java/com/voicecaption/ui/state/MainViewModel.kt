@@ -116,6 +116,9 @@ class MainViewModel(
     /** Sets the caption plate colour (opaque RGB). */
     fun onPlateColor(color: Int) = update { it.copy(plateColor = color) }
 
+    /** Turns "also record the screen with captions" on or off for the next start. */
+    fun onRecordScreen(enabled: Boolean) = update { it.copy(recordScreen = enabled) }
+
     /** Shows or hides the diagnostics line in the caption box (debug builds). */
     fun onShowDiagnostics(enabled: Boolean) = update { it.copy(showDiagnostics = enabled) }
 

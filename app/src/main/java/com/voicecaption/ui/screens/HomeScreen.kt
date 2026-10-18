@@ -2,6 +2,9 @@ package com.voicecaption.ui.screens
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Switch
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -81,6 +84,7 @@ class HomeActions(
     val onDownload: () -> Unit,
     val onRetryDownload: () -> Unit,
     val onCancelDownload: () -> Unit,
+    val onRecordScreen: (Boolean) -> Unit,
 )
 
 /**
@@ -120,6 +124,12 @@ fun HomeScreen(
                     onTargetSelected = actions.onTargetLanguage,
                     onSwap = actions.onSwapLanguages,
                     downloaded = state.downloadedLanguages,
+                )
+
+                RecordToggle(
+                    checked = state.settings.recordScreen,
+                    enabled = !state.running,
+                    onChange = actions.onRecordScreen,
                 )
 
                 val (icon, tint) = statusIcon(status, notStarted)
@@ -358,5 +368,29 @@ private fun statusIcon(status: HomeStatus, notStarted: Boolean): Pair<ImageVecto
             HomeStatus.READY -> Icons.Filled.CheckCircle to scheme.primary
             HomeStatus.LISTENING -> Icons.Filled.PlayArrow to scheme.primary
         }
+    }
+}
+
+/** "Record the screen with captions": one switch, applied the next time captions start. */
+@Composable
+private fun RecordToggle(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val label = stringResource(R.string.home_record_label)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = Spacing.Target)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onChange),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+    ) {
+        Column(Modifier.weight(1f).padding(horizontal = Spacing.Mini), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.home_record_helper),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }

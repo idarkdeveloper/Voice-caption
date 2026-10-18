@@ -46,6 +46,8 @@ data class CaptionSettings(
     val plateColor: Int = ColorMath.BLACK,
     /** Debug builds only: show the speed and recognition stats line inside the caption box. */
     val showDiagnostics: Boolean = false,
+    /** Also record the screen, with the captions on it, to Movies/TransCap while captions run. */
+    val recordScreen: Boolean = false,
     /** Where the user dragged the translation box, in dp from the bottom edge; null = default spot. */
     val translationOffsetDp: Int? = null,
     /** Where the user dragged the original-language box, in dp from the bottom edge; null = stacked above the translation. */

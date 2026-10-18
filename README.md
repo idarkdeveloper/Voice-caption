@@ -28,6 +28,7 @@ TransCap is an Android app that listens to whatever film or video is playing on 
 | ⚡ **Live captions** | Text shows while the person is still speaking, then settles. Display time grows with sentence length. |
 | 🎵 **Marks music** | Background music shows as one `(music)` caption instead of wrong words. |
 | 🎨 **Your style** | Separate boxes for the original line and the translation, drag each one, reset positions, text and plate colours, size stepper, opacity. |
+| 🎥 **Records with captions** | Optional switch on Home: saves a video of your screen, with the caption boxes on it and the video's sound, to `Movies/TransCap`. It uses the same screen-sharing session as the captions, so it works where Android's own recorder would stop them. |
 | 🔒 **Private by default** | Nothing is recorded or stored, and no audio or transcript is sent anywhere in the free tier. |
 
 <p align="center"><img src="docs/readme/screens-settings-download.png" alt="Design mockup: Settings and first-run download screens" width="85%"></p>
@@ -53,6 +54,7 @@ TransCap will not hear apps that block audio capture, such as some streaming app
 
 - The free tier processes audio on the device: speech recognition (Whisper and SenseVoice) and translation (ML Kit) run locally. Audio is never recorded or stored, and no audio or transcript is sent anywhere.
 - The `INTERNET` permission is used only to download the speech models (from Hugging Face, pinned to a commit and SHA-256 verified) and the ML Kit language packs.
+- Screen recordings (an optional switch) are saved only on the phone, in `Movies/TransCap`. Nothing is uploaded.
 - Android asks for screen-capture permission because that is how it exposes playback audio. TransCap only reads the audio. The overlay permission draws the caption boxes.
 - ML Kit's bundled APIs may send anonymous performance and usage metrics to Google. No audio or text is included, but this is network traffic beyond the downloads above.
 - Before any store listing, a real privacy policy must describe the above (including the ML Kit metrics). Nothing here is a statement of legal compliance.
@@ -88,7 +90,7 @@ How it works inside: `AudioCapture → FrameChunker → VadSegmenter (Silero) �
 ## 🛠️ Runbook
 
 ```bash
-./gradlew testDebugUnitTest    # 289 unit tests
+./gradlew testDebugUnitTest    # 309 unit tests
 ./gradlew lintDebug
 ./gradlew assembleDebug
 ```

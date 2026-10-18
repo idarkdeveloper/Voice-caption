@@ -149,6 +149,7 @@ fun AppRoot(vm: MainViewModel) {
                 onDownload = vm::startDownloads,
                 onRetryDownload = vm::retryDownloads,
                 onCancelDownload = vm::cancelDownloads,
+                onRecordScreen = vm::onRecordScreen,
             ),
         )
         Screen.SETTINGS -> SettingsScreen(
