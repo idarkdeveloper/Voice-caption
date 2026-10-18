@@ -70,6 +70,14 @@ object RecognizedText {
         return t.isNotEmpty() && isNoise(t) && MUSIC_WORDS.containsMatchIn(t)
     }
 
+    private val HALLUCINATIONS = Regex(
+        "(?i)terima kasih kerana menonton|thank(s| you) for watching|salamat sa panonood|subtitles? by|amara\\.org|" +
+            "don't forget to subscribe|y continuamos|gracias por ver",
+    )
+
+    /** Text Whisper invents over music or silence (outro phrases from its training subtitles). */
+    fun isHallucination(text: String): Boolean = HALLUCINATIONS.containsMatchIn(text)
+
     /** True when [text] holds real words (after cut-off notes are removed), not just tags or symbols. */
     fun hasWords(text: String): Boolean = !isNoise(stripSoundTags(text).trim())
 }

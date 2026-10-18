@@ -40,4 +40,12 @@ class RecognizedTextTest {
         assertTrue(RecognizedText.hasWords("hello"))
         assertTrue(RecognizedText.hasWords("[Music] hello"))
     }
+
+    @Test
+    fun outroPhrasesWhisperInventsOverMusicAreHallucinations() {
+        assertTrue(RecognizedText.isHallucination("Terima kasih kerana menonton!"))
+        assertTrue(RecognizedText.isHallucination("Thanks for watching"))
+        assertTrue(RecognizedText.isHallucination("Salamat sa panonood"))
+        assertFalse(RecognizedText.isHallucination("Last 3 minutes na lang po."))
+    }
 }
