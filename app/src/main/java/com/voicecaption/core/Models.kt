@@ -63,8 +63,9 @@ object ModelChoice {
     private val SENSEVOICE_FIRST = setOf("ja", "zh", "ko", "yue")
 
     fun resolve(auto: Boolean, preferred: ModelSize, sourceLang: String): ModelSize {
-        if (!auto) return preferred
         val primary = sourceLang.trim().lowercase().split('-', '_').first()
+        // SenseVoice does not know Filipino, so an explicit SenseVoice choice must not stay on it.
+        if (!auto) return if (primary == "tl" && preferred == ModelSize.SENSEVOICE) ModelSize.TURBO else preferred
         return when {
             primary == "auto" -> if (preferred == ModelSize.SENSEVOICE) ModelSize.BASE else preferred // Whisper listens first
             primary in SENSEVOICE_FIRST -> ModelSize.SENSEVOICE
