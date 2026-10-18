@@ -218,8 +218,9 @@ class CaptureService : Service() {
             val modelsDir = ServiceDependencies.modelsDir(this)
             val modelDir = File(modelsDir, modelSize.dirName())
             // Korean or Chinese with English captions: long finished sentences go to Whisper small (translating
-            // directly) when it is installed and the speech model is on Auto; see [HybridRecognizer].
-            val smallForLongKorean = settings.autoModel && (sourceAuto || settings.sourceLang.lowercase().let { it.startsWith("ko") || it.startsWith("zh") }) &&
+            // directly) when it is installed, also when "Accurate" is the chosen size for Auto-detect; an explicit
+            // "SenseVoice" choice stays SenseVoice only. See [HybridRecognizer].
+            val smallForLongKorean = (sourceAuto || settings.sourceLang.lowercase().let { it.startsWith("ko") || it.startsWith("zh") }) &&
                 settings.targetLang.lowercase().startsWith("en") &&
                 ModelManager(modelsDir, HttpUrlConnectionDownloader()).isInstalled(ModelSize.SMALL)
             fun senseVoiceFor(dir: File): SpeechRecognizer {

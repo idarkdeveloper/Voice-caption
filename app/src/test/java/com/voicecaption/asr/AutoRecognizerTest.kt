@@ -172,4 +172,25 @@ class AutoRecognizerTest {
         repeat(2) { r.recognize(segment(), "auto") }
         assertEquals("ja", r.lockedLanguage)
     }
+
+    @Test
+    fun autoWithAHybridSendsLongChineseSentencesToTheLongRecognizer() = runTest {
+        val whisper = Fake({ "w" }, detected = "zh")
+        val fast = Fake({ "fast" }, detected = "zh")
+        val long = Fake({ "long" }, detected = "zh", outputLanguage = "en")
+        val hybrid = HybridRecognizer(fast, long)
+        val r = auto(whisper, hybrid)
+        r.recognize(segment(), "auto"); r.recognize(segment(), "auto") // lock to Chinese
+
+        val short = r.recognize(segment(2_000), "auto")
+        assertEquals("fast", short.text)
+        assertNull(r.outputLanguage)
+
+        val longLine = r.recognize(segment(6_000), "auto")
+        assertEquals("long", longLine.text)
+        assertEquals("en", r.outputLanguage) // already English: the pipeline skips ML Kit
+        assertEquals("SENSEVOICE>SMALL", r.engine)
+        assertEquals(listOf("zh"), long.calls) // told the detected language
+        assertEquals(listOf("auto"), fast.calls) // SenseVoice stays on auto for Chinese
+    }
 }

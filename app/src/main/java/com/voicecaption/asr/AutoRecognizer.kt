@@ -42,7 +42,7 @@ class AutoRecognizer(
     /** Name of the engine in use, for diagnostics. */
     val engine: String
         get() = when (route) {
-            Route.SENSEVOICE -> "SENSEVOICE"
+            Route.SENSEVOICE -> if ((senseVoice as? HybridRecognizer)?.lastUsedLong == true) "SENSEVOICE>SMALL" else "SENSEVOICE"
             Route.WHISPER -> "WHISPER"
             null -> "WHISPER (listening)"
         }

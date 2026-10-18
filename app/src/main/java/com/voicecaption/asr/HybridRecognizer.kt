@@ -18,6 +18,11 @@ class HybridRecognizer(
 ) : SpeechRecognizer {
     private var lastOutputLanguage: String? = null
 
+    /** True when the last call was handled by the long recognizer (for the diagnostics line). */
+    @Volatile
+    var lastUsedLong: Boolean = false
+        private set
+
     /**
      * The language the session settled on, set by [AutoRecognizer] when it calls with "auto" (it keeps
      * SenseVoice on auto for Chinese so Cantonese is still told apart). Used only when the caller gave none.
@@ -34,6 +39,7 @@ class HybridRecognizer(
         val primary = if (isAutoLanguage(given)) languageHint.orEmpty() else given
         val useLong = !segment.partial && segment.endMs - segment.startMs >= minLongMs && primary in longLanguages
         val chosen = if (useLong) long else fast
+        lastUsedLong = useLong
         // The long recognizer is told the language so it does not have to guess it again.
         val t = chosen.recognize(segment, if (useLong) primary else language)
         lastOutputLanguage = chosen.outputLanguage
