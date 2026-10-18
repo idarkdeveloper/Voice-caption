@@ -67,9 +67,20 @@ class AutoRecognizerTest {
         val t = r.recognize(segment(), "auto")
         assertEquals("s", t.text)
         assertEquals("ja", t.language)
-        assertEquals(listOf("auto"), sense.calls)
+        assertEquals(listOf("ja"), sense.calls) // the locked language is told to SenseVoice
         assertNull(r.outputLanguage)
         assertEquals("SENSEVOICE", r.engine)
+    }
+
+    @Test
+    fun koreanStaysKoreanEvenWhenSenseVoiceWouldGuessJapaneseForALine() = runTest {
+        val whisper = Fake({ "w" }, detected = "ko")
+        val sense = Fake({ "s" }, detected = "ja") // what auto-detection returned for a short noisy line
+        val r = auto(whisper, sense)
+        r.recognize(segment(), "auto"); r.recognize(segment(), "auto") // lock to Korean
+        val t = r.recognize(segment(), "auto")
+        assertEquals(listOf("ko"), sense.calls)
+        assertEquals("ko", t.language) // translated as Korean, not as Japanese
     }
 
     @Test

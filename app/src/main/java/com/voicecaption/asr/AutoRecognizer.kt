@@ -74,10 +74,13 @@ class AutoRecognizer(
     private suspend fun speak(segment: SpeechSegment, locked: String): Transcript {
         val chosen = route ?: decideRoute(locked).also { route = it }
         if (chosen == Route.SENSEVOICE && senseVoice != null) {
-            val t = senseVoice.recognize(segment, AUTO_LANGUAGE)
+            // Japanese and Korean are told to SenseVoice: left to detect each short or noisy line itself
+            // it sometimes decoded Korean as Japanese. Chinese stays on auto so it can tell Mandarin from Cantonese.
+            val told = locked in TOLD_LANGUAGES
+            val t = senseVoice.recognize(segment, if (told) locked else AUTO_LANGUAGE)
             currentOutputLanguage = null
             // SenseVoice names Cantonese "yue"; ML Kit knows it as Chinese.
-            return Transcript(t.text, translationCode(t.language ?: locked), t.event)
+            return Transcript(t.text, translationCode(if (told) locked else (t.language ?: locked)), t.event)
         }
         val t = whisper.recognize(segment, locked)
         currentOutputLanguage = whisper.outputLanguage
@@ -96,6 +99,7 @@ class AutoRecognizer(
 
     private companion object {
         val SENSEVOICE_LANGUAGES = setOf("ja", "zh", "ko", "yue")
+        val TOLD_LANGUAGES = setOf("ja", "ko")
 
         fun translationCode(language: String): String = if (language == "yue") "zh" else language
     }
