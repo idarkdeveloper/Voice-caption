@@ -34,6 +34,8 @@ export interface FakeDeepgram {
   requests(): FakeRequest[];
   /** Number of Finalize messages received. */
   finalizeCount(): number;
+  /** Number of KeepAlive messages received. */
+  keepAliveCount(): number;
 }
 
 const defaultTranscript = (n: number) => `fake segment ${n} says hello world again`;
@@ -50,6 +52,7 @@ export async function startFakeDeepgram(opts: FakeOptions = {}): Promise<FakeDee
   const timers = new Set<NodeJS.Timeout>();
   let audioBytes = 0;
   let finalizes = 0;
+  let keepAlives = 0;
 
   const later = (ms: number, fn: () => void) => {
     const t = setTimeout(() => {
@@ -159,6 +162,8 @@ export async function startFakeDeepgram(opts: FakeOptions = {}): Promise<FakeDee
         const respond = () => send(text, true, true, start, end);
         if (finalizeDelay > 0) later(finalizeDelay, respond);
         else respond();
+      } else if (msg.type === "KeepAlive") {
+        keepAlives++;
       } else if (msg.type === "CloseStream") {
         if (ws.readyState === ws.OPEN) {
           ws.send(JSON.stringify({ type: "Metadata", request_id: "fake-request" }));
@@ -177,6 +182,7 @@ export async function startFakeDeepgram(opts: FakeOptions = {}): Promise<FakeDee
     receivedAudioBytes: () => audioBytes,
     requests: () => requests,
     finalizeCount: () => finalizes,
+    keepAliveCount: () => keepAlives,
     async stop() {
       for (const t of timers) clearTimeout(t);
       timers.clear();
