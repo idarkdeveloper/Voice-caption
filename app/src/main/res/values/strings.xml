@@ -6,6 +6,9 @@
     <string name="langpack_done">All language packs are downloaded</string>
     <string name="langpack_failed">Download stopped: %1$s</string>
     <string name="capture_channel_name">Live captions</string>
+    <string name="capture_stopped_title">Captions stopped</string>
+    <string name="capture_stopped_by_android">Android ended the audio sharing. This can happen when another screen recording or capture starts. Open TransCap and press Start captions to continue.</string>
+    <string name="capture_stopped_unexpected">Audio capture stopped unexpectedly. Another app that records audio or the screen may have taken over. Open TransCap and press Start captions to continue.</string>
     <string name="capture_notification_title">Live captions are on</string>
     <string name="capture_notification_text">Captioning the sound playing on this phone</string>
     <string name="capture_action_stop">Stop</string>
