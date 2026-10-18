@@ -88,6 +88,21 @@ npm run replay -- --url wss://host/v1/stream --token "$(cat token.txt)" \
 summary (p50/p95 per metric) is printed and optionally written with `--summary`. The token may also
 be passed in `REPLAY_TOKEN`. No audio, text or token is printed.
 
+## Cost report and Slice 0 gate
+
+```
+npm run cost-report -- --billed-usd 2.31 results-*.jsonl
+npm run gate -- --summary summary-*.json --billed-usd 2.31 --metered-ms 18000000
+```
+
+`cost-report` sums the metered audio (`audio_ms_sent`, bytes/32) of the stream records in the
+replay result files and prints USD per audio hour. `gate` takes replay summaries (or raw result
+files), derives the vantage from the label prefix (`us*`, `eu*`, `asia*`) and checks: p95 of
+finalize-to-final <= 1300 ms for every `us` and `eu` run (and at least one run of each must be
+present), cost <= $0.46 per audio hour; `asia` is reported but not gating; a `complete:false`
+share above 1% is a warning. Exit code 0 = passed, 1 = failed, 2 = bad usage. For the real gate use
+the proxy's logged `audio_ms` sum as `--metered-ms`.
+
 ## Privacy
 
 Logs use an allowlist of field names (`src/log.ts`). No audio, transcript text, JWTs or API keys are

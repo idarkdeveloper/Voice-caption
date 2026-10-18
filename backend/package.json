@@ -11,7 +11,9 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
-    "replay": "tsx tools/replay/replay.ts"
+    "replay": "tsx tools/replay/replay.ts",
+    "cost-report": "tsx tools/cost-report.ts",
+    "gate": "tsx tools/gate.ts"
   },
   "dependencies": {
     "fastify": "5.12.7",
