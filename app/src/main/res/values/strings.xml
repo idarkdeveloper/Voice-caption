@@ -101,7 +101,9 @@
     <string name="settings_preview">Preview</string>
     <string name="settings_preview_description">Caption preview: %1$s</string>
     <string name="settings_move_hint">While captions are on, drag each caption box up or down to place it.</string>
-    <string name="settings_reset_positions">Reset caption positions</string>
+    <string name="settings_reset_positions">Reset positions</string>
+    <string name="settings_caption_box">Caption box</string>
+    <string name="settings_bilingual_helper">Adds a smaller box with the film\'s own language above the translation.</string>
     <string name="settings_size_label">Caption size</string>
     <string name="settings_size_decrease">Make captions smaller</string>
     <string name="settings_size_increase">Make captions larger</string>
@@ -127,8 +129,10 @@
     <string name="color_purple">Purple</string>
     <string name="color_brown">Brown</string>
     <string name="settings_model">Speech model</string>
-    <string name="settings_model_fast">Fast (base)</string>
-    <string name="settings_model_accurate">Accurate (small)</string>
+    <string name="settings_model_fast">Fast</string>
+    <string name="storage_model_fast">Fast (base)</string>
+    <string name="storage_model_accurate">Accurate (small)</string>
+    <string name="settings_model_accurate">Accurate</string>
     <string name="settings_model_auto">Auto</string>
     <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, and Whisper for other languages.</string>
     <string name="settings_model_experimental">SenseVoice</string>

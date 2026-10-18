@@ -1,6 +1,12 @@
 package com.voicecaption.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -105,11 +111,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                 IconButton(onClick = actions.onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                 }
-                Text(
-                    stringResource(R.string.settings_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { heading() },
-                )
+                SectionTitle(stringResource(R.string.settings_title))
             }
         },
     ) { padding ->
@@ -122,11 +124,6 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
             verticalArrangement = Arrangement.spacedBy(Spacing.Large),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                Text(
-                    stringResource(R.string.settings_preview),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { heading() },
-                )
                 CaptionPreview(
                     fontSizeSp = fontDraft,
                     opacity = opacityPercent / 100f,
@@ -134,77 +131,93 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                     textColor = settings.textColor,
                     plateColor = settings.plateColor,
                 )
-                Text(
-                    stringResource(R.string.settings_move_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(
-                    onClick = actions.onResetPositions,
-                    modifier = Modifier.heightIn(min = Spacing.Target),
-                ) { Text(stringResource(R.string.settings_reset_positions)) }
-            }
-
-            SettingSlider(
-                label = stringResource(R.string.settings_size_label),
-                valueText = stringResource(R.string.settings_size_value, fontDraft),
-                value = settings.fontSizeSp.toFloat(),
-                valueRange = MIN_FONT_SP.toFloat()..MAX_FONT_SP.toFloat(),
-                steps = MAX_FONT_SP - MIN_FONT_SP - 1,
-                onChange = { fontDraft = it.roundToInt() },
-                onCommit = { actions.onFontSize(it.roundToInt()) },
-                valueContent = {
-                    SizeStepper(
-                        value = fontDraft,
-                        min = MIN_FONT_SP,
-                        max = MAX_FONT_SP,
-                        valueText = stringResource(R.string.settings_size_value, fontDraft),
-                        onValue = { size ->
-                            fontDraft = size
-                            actions.onFontSize(size)
-                        },
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.Mini),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+                ) {
+                    Text(
+                        stringResource(R.string.settings_move_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
-                },
-            )
-
-            SettingSlider(
-                label = stringResource(R.string.settings_opacity_label),
-                valueText = stringResource(R.string.settings_opacity_value, opacityPercent.roundToInt()),
-                value = percentOf(settings.opacity).toFloat(),
-                valueRange = MIN_OPACITY_PERCENT.toFloat()..MAX_OPACITY_PERCENT.toFloat(),
-                steps = (MAX_OPACITY_PERCENT - MIN_OPACITY_PERCENT) / OPACITY_STEP_PERCENT - 1,
-                onChange = { opacityPercent = it },
-                onCommit = { actions.onOpacity(it.roundToInt() / 100f) },
-            )
-
-            val switchLabel = stringResource(R.string.settings_bilingual)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = Spacing.Target)
-                    .toggleable(
-                        value = settings.bilingual,
-                        role = Role.Switch,
-                        onValueChange = actions.onBilingual,
-                    ),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(switchLabel, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                Switch(checked = settings.bilingual, onCheckedChange = null)
+                    OutlinedButton(
+                        onClick = actions.onResetPositions,
+                        modifier = Modifier.heightIn(min = Spacing.Target),
+                    ) { Text(stringResource(R.string.settings_reset_positions), maxLines = 1) }
+                }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
-                Text(
-                    stringResource(R.string.settings_colors),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { heading() },
+            SectionTitle(stringResource(R.string.settings_caption_box))
+            SettingsCard {
+                SettingSlider(
+                    label = stringResource(R.string.settings_size_label),
+                    valueText = stringResource(R.string.settings_size_value, fontDraft),
+                    value = settings.fontSizeSp.toFloat(),
+                    valueRange = MIN_FONT_SP.toFloat()..MAX_FONT_SP.toFloat(),
+                    steps = MAX_FONT_SP - MIN_FONT_SP - 1,
+                    onChange = { fontDraft = it.roundToInt() },
+                    onCommit = { actions.onFontSize(it.roundToInt()) },
+                    valueContent = {
+                        SizeStepper(
+                            value = fontDraft,
+                            min = MIN_FONT_SP,
+                            max = MAX_FONT_SP,
+                            valueText = stringResource(R.string.settings_size_value, fontDraft),
+                            onValue = { size ->
+                                fontDraft = size
+                                actions.onFontSize(size)
+                            },
+                        )
+                    },
                 )
+
+                SettingsDivider()
+                SettingSlider(
+                    label = stringResource(R.string.settings_opacity_label),
+                    valueText = stringResource(R.string.settings_opacity_value, opacityPercent.roundToInt()),
+                    value = percentOf(settings.opacity).toFloat(),
+                    valueRange = MIN_OPACITY_PERCENT.toFloat()..MAX_OPACITY_PERCENT.toFloat(),
+                    steps = (MAX_OPACITY_PERCENT - MIN_OPACITY_PERCENT) / OPACITY_STEP_PERCENT - 1,
+                    onChange = { opacityPercent = it },
+                    onCommit = { actions.onOpacity(it.roundToInt() / 100f) },
+                )
+
+                SettingsDivider()
+                val switchLabel = stringResource(R.string.settings_bilingual)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = Spacing.Target)
+                        .toggleable(
+                            value = settings.bilingual,
+                            role = Role.Switch,
+                            onValueChange = actions.onBilingual,
+                        ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f).padding(vertical = Spacing.Small), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(switchLabel, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.settings_bilingual_helper),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = settings.bilingual, onCheckedChange = null)
+                }
+            }
+
+            SectionTitle(stringResource(R.string.settings_colors))
+            SettingsCard(padding = Spacing.Margin) {
                 ColorChoice(
                     title = stringResource(R.string.settings_text_color),
                     options = TextColorOptions,
                     selected = settings.textColor,
                     onSelect = actions.onTextColor,
                 )
+                SettingsDivider()
                 ColorChoice(
                     title = stringResource(R.string.settings_plate_color),
                     options = PlateColorOptions,
@@ -223,11 +236,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
             ModelChoice(settings.autoModel, settings.modelSize, actions.onModelSize, actions.onAutoModel)
 
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                Text(
-                    stringResource(R.string.settings_languages),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { heading() },
-                )
+                SectionTitle(stringResource(R.string.settings_languages))
                 LanguagePairRow(
                     sourceLang = settings.sourceLang,
                     targetLang = settings.targetLang,
@@ -291,11 +300,7 @@ private fun ModelChoice(auto: Boolean, selected: ModelSize, onSelect: (ModelSize
     )
     val current: ModelSize? = if (auto) null else selected
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-        Text(
-            stringResource(R.string.settings_model),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() },
-        )
+        SectionTitle(stringResource(R.string.settings_model))
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (size, label) ->
                 SegmentedButton(
@@ -331,11 +336,7 @@ private fun OfflineLanguagesSection(
 ) {
     var confirm by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-        Text(
-            stringResource(R.string.settings_offline_languages),
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.semantics { heading() },
-        )
+        SectionTitle(stringResource(R.string.settings_offline_languages))
         when (download) {
             is DownloadState.Downloading -> {
                 val description = stringResource(R.string.download_progress_description)
@@ -386,4 +387,38 @@ private fun OfflineLanguagesSection(
             },
         )
     }
+}
+
+/** A small caption above a group of settings (headline for TalkBack). */
+@Composable
+internal fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(horizontal = Spacing.Mini).semantics { heading() },
+    )
+}
+
+/** A rounded card that groups related controls. */
+@Composable
+internal fun SettingsCard(
+    modifier: Modifier = Modifier,
+    padding: androidx.compose.ui.unit.Dp = Spacing.Mini,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = Spacing.Margin, vertical = padding),
+        verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+        content = content,
+    )
+}
+
+@Composable
+internal fun SettingsDivider() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.background)
 }

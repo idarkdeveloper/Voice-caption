@@ -1,6 +1,26 @@
 package com.voicecaption.ui.screens
 
 import androidx.annotation.StringRes
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.voicecaption.ui.theme.Amber
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,23 +64,18 @@ class OnboardingActions(
 
 /**
  * First-run onboarding, one step per screen. [denied] says the user already refused the current
- * permission, so the screen explains what will not work and offers "Open settings".
+ * permission, so the screen explains what will not work and offers "Open settings". The actions
+ * are pinned to the bottom, in thumb reach.
  */
 @Composable
 fun OnboardingScreen(step: OnboardingStep, granted: Boolean, denied: Boolean, actions: OnboardingActions) {
     Scaffold { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(Spacing.Margin),
-            verticalArrangement = Arrangement.spacedBy(Spacing.Margin),
-        ) {
+        Column(Modifier.fillMaxSize().padding(padding)) {
             when (step) {
                 OnboardingStep.INTRO -> IntroStep(actions)
                 OnboardingStep.OVERLAY -> PermissionStep(
                     number = 1, granted = granted, denied = denied,
+                    icon = R.drawable.ic_pip,
                     title = R.string.onboarding_overlay_title,
                     body = R.string.onboarding_overlay_body,
                     deniedText = R.string.onboarding_overlay_denied,
@@ -68,9 +83,11 @@ fun OnboardingScreen(step: OnboardingStep, granted: Boolean, denied: Boolean, ac
                     onAction = actions.onOpenOverlaySettings,
                     onOpenSettings = actions.onOpenAppSettings,
                     showOpenSettings = false,
+                    actionOpensSettings = true,
                 )
                 OnboardingStep.NOTIFICATIONS -> PermissionStep(
                     number = 2, granted = granted, denied = denied,
+                    icon = R.drawable.ic_notification_bell,
                     title = R.string.onboarding_notifications_title,
                     body = R.string.onboarding_notifications_body,
                     deniedText = R.string.onboarding_notifications_denied,
@@ -82,6 +99,7 @@ fun OnboardingScreen(step: OnboardingStep, granted: Boolean, denied: Boolean, ac
                 )
                 OnboardingStep.MICROPHONE -> PermissionStep(
                     number = 3, granted = granted, denied = denied,
+                    icon = R.drawable.ic_graphic_eq,
                     title = R.string.onboarding_mic_title,
                     body = R.string.onboarding_mic_body,
                     deniedText = R.string.onboarding_mic_denied,
@@ -95,29 +113,58 @@ fun OnboardingScreen(step: OnboardingStep, granted: Boolean, denied: Boolean, ac
 }
 
 @Composable
-private fun IntroStep(actions: OnboardingActions) {
-    Text(
-        stringResource(R.string.onboarding_intro_title),
-        style = MaterialTheme.typography.headlineSmall,
-        modifier = Modifier.semantics { heading() },
-    )
-    Text(stringResource(R.string.onboarding_intro_body), style = MaterialTheme.typography.bodyLarge)
-    Text(
-        stringResource(R.string.onboarding_intro_drm),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    Button(
-        onClick = actions.onContinueFromIntro,
-        modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.PrimaryButton),
-    ) { Text(stringResource(R.string.action_continue)) }
+private fun ColumnScope.IntroStep(actions: OnboardingActions) {
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .verticalScroll(rememberScrollState())
+            .padding(start = Spacing.Large, end = Spacing.Large, top = Spacing.XXLarge),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        Image(painterResource(R.drawable.ic_logo_mark), contentDescription = null, modifier = Modifier.size(88.dp))
+        Text(
+            stringResource(R.string.onboarding_intro_title),
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(stringResource(R.string.onboarding_intro_body), style = MaterialTheme.typography.bodyLarge)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(horizontal = Spacing.Margin, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Icon(
+                Icons.Filled.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                stringResource(R.string.onboarding_intro_drm),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    Column(Modifier.padding(start = Spacing.Margin, end = Spacing.Margin, bottom = Spacing.Large)) {
+        Button(
+            onClick = actions.onContinueFromIntro,
+            modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.PrimaryButton),
+        ) { Text(stringResource(R.string.action_continue), style = MaterialTheme.typography.titleMedium) }
+    }
 }
 
 @Composable
-private fun PermissionStep(
+private fun ColumnScope.PermissionStep(
     number: Int,
     granted: Boolean,
     denied: Boolean,
+    @DrawableRes icon: Int,
     @StringRes title: Int,
     @StringRes body: Int,
     @StringRes deniedText: Int,
@@ -125,56 +172,118 @@ private fun PermissionStep(
     onAction: () -> Unit,
     onOpenSettings: () -> Unit,
     showOpenSettings: Boolean = true,
+    actionOpensSettings: Boolean = false,
     @StringRes skip: Int? = null,
     onSkip: () -> Unit = {},
 ) {
-    Text(
-        stringResource(R.string.onboarding_step_indicator, number, STEP_COUNT),
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-    )
-    Text(
-        stringResource(title),
-        style = MaterialTheme.typography.headlineSmall,
-        modifier = Modifier.semantics { heading() },
-    )
-    Text(stringResource(body), style = MaterialTheme.typography.bodyLarge)
-    if (granted) {
-        StatusLine(
-            Icons.Filled.CheckCircle,
-            stringResource(R.string.onboarding_status_granted),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-    } else {
-        StatusLine(
-            Icons.Filled.Warning,
-            stringResource(R.string.onboarding_status_not_granted),
-            tint = if (denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-    if (denied && !granted) {
+    val scheme = MaterialTheme.colorScheme
+    val refused = denied && !granted
+    Column(
+        modifier = Modifier.padding(start = Spacing.Large, end = Spacing.Large, top = Spacing.Margin),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Text(
-            stringResource(deniedText),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.error,
+            stringResource(R.string.onboarding_step_indicator, number, STEP_COUNT),
+            style = MaterialTheme.typography.labelLarge,
+            color = scheme.onSurfaceVariant,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            repeat(STEP_COUNT) { index ->
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (index < number) scheme.primary else scheme.surfaceVariant),
+                )
+            }
+        }
     }
-    Button(
-        onClick = onAction,
-        modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.PrimaryButton),
-    ) { Text(stringResource(action)) }
-    if (denied && !granted && showOpenSettings) {
-        OutlinedButton(
-            onClick = onOpenSettings,
-            modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target),
-        ) { Text(stringResource(R.string.action_open_settings)) }
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .verticalScroll(rememberScrollState())
+            .padding(start = Spacing.Large, end = Spacing.Large, top = 40.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        Box(
+            Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)).background(Amber),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(painterResource(icon), contentDescription = null, tint = scheme.background, modifier = Modifier.size(32.dp))
+        }
+        Text(
+            stringResource(title),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(stringResource(body), style = MaterialTheme.typography.bodyLarge)
+        if (refused) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, scheme.error, RoundedCornerShape(16.dp))
+                    .padding(horizontal = Spacing.Margin, vertical = 14.dp)
+                    .semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Icon(Icons.Filled.Warning, contentDescription = null, tint = scheme.error, modifier = Modifier.size(20.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.Mini)) {
+                    Text(
+                        stringResource(R.string.onboarding_status_not_granted),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(stringResource(deniedText), style = MaterialTheme.typography.bodyMedium, color = scheme.error)
+                }
+            }
+        } else {
+            val (statusIcon, statusText, tint) = if (granted) {
+                Triple(Icons.Filled.CheckCircle, R.string.onboarding_status_granted, scheme.primary)
+            } else {
+                Triple(Icons.Filled.Warning, R.string.onboarding_status_not_granted, scheme.onSurfaceVariant)
+            }
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(scheme.surfaceVariant)
+                    .padding(start = 10.dp, end = 14.dp, top = Spacing.Small, bottom = Spacing.Small),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+            ) {
+                Icon(statusIcon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                Text(stringResource(statusText), style = MaterialTheme.typography.bodyMedium)
+            }
+        }
     }
-    if (skip != null) {
-        TextButton(
-            onClick = onSkip,
-            modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target),
-        ) { Text(stringResource(skip)) }
+    Column(
+        modifier = Modifier.padding(start = Spacing.Margin, end = Spacing.Margin, bottom = Spacing.Large),
+        verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+    ) {
+        Button(
+            onClick = onAction,
+            modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.PrimaryButton),
+        ) {
+            Text(stringResource(action), style = MaterialTheme.typography.titleMedium)
+            if (actionOpensSettings) {
+                Spacer(Modifier.width(Spacing.Small))
+                Icon(painterResource(R.drawable.ic_open_in_new), contentDescription = null, modifier = Modifier.size(20.dp))
+            }
+        }
+        if (refused && showOpenSettings) {
+            OutlinedButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target),
+            ) { Text(stringResource(R.string.action_open_settings)) }
+        }
+        if (skip != null) {
+            TextButton(
+                onClick = onSkip,
+                modifier = Modifier.fillMaxWidth().heightIn(min = Spacing.Target),
+            ) { Text(stringResource(skip)) }
+        }
     }
 }
