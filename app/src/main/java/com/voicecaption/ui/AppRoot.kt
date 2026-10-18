@@ -23,6 +23,7 @@ import com.voicecaption.asr.ModelCatalog
 import com.voicecaption.core.ModelSize
 import com.voicecaption.overlay.OverlayRenderer
 import com.voicecaption.service.CaptureService
+import com.voicecaption.service.LanguagePackService
 import com.voicecaption.ui.permissions.Permissions
 import com.voicecaption.ui.screens.HomeActions
 import com.voicecaption.ui.screens.HomeScreen
@@ -168,7 +169,10 @@ fun AppRoot(vm: MainViewModel) {
                 onSwapLanguages = swapLanguages,
                 onDeleteModel = vm::deleteModel,
                 onShowDiagnostics = vm::onShowDiagnostics,
-                onDownloadAllLanguages = vm::downloadAllLanguages,
+                onDownloadAllLanguages = {
+                    vm.downloadAllLanguages()
+                    LanguagePackService.start(context)
+                },
                 onRetryDownload = vm::retryLanguagePacks,
                 onCancelDownload = vm::cancelLanguagePacks,
             ),

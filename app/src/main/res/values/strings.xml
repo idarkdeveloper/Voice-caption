@@ -1,5 +1,10 @@
 <resources>
     <string name="app_name">TransCap</string>
+    <string name="langpack_channel_name">Language downloads</string>
+    <string name="langpack_title">Downloading language packs</string>
+    <string name="langpack_cancel">Cancel</string>
+    <string name="langpack_done">All language packs are downloaded</string>
+    <string name="langpack_failed">Download stopped: %1$s</string>
     <string name="capture_channel_name">Live captions</string>
     <string name="capture_notification_title">Live captions are on</string>
     <string name="capture_notification_text">Captioning the sound playing on this phone</string>
