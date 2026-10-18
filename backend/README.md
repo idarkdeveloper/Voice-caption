@@ -70,6 +70,24 @@ The committed `config/deepgram-languages.json` and gap doc are **PRELIMINARY** (
 blueprint's result, 50 of 57, gaps cy, gl, ht, is, mt, sq, sw). Re-generate them with a real key in
 Task 10.
 
+## Replay harness
+
+Streams WAV clips (16 kHz mono 16-bit) in real time over the `/v1/stream` protocol and measures
+latency with the harness's own monotonic clock. Only detected speech plus its 400 ms hangover is
+sent, in 96 ms batches paced against absolute deadlines.
+
+```
+JWT_SECRET=... npx tsx tools/mint-dev-token.ts > token.txt
+npm run replay -- --url wss://host/v1/stream --token "$(cat token.txt)" \
+  --clips ../app/src/androidTest/assets/bench --repeat 20 --label us-east --out results-us-east.jsonl \
+  [--summary summary-us-east.json] [--lang en]
+```
+
+`--out` is JSON Lines: one record per segment (`ttfp_ms`, `final_after_finalize_ms`, `complete`,
+`audio_ms`) and one `{type:"stream"}` record per stream (`open_to_ready_ms`, `audio_ms_sent`). A
+summary (p50/p95 per metric) is printed and optionally written with `--summary`. The token may also
+be passed in `REPLAY_TOKEN`. No audio, text or token is printed.
+
 ## Privacy
 
 Logs use an allowlist of field names (`src/log.ts`). No audio, transcript text, JWTs or API keys are

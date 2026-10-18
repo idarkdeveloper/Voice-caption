@@ -10,7 +10,8 @@
     "test": "vitest run",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "replay": "tsx tools/replay/replay.ts"
   },
   "dependencies": {
     "fastify": "5.12.7",
