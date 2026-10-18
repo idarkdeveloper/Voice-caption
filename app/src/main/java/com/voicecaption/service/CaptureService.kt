@@ -215,7 +215,8 @@ class CaptureService : Service() {
             // measured clearly more accurate than transcribing and then translating with ML Kit.
             // With auto-detect the film may be in any language, so Whisper translates whenever the
             // captions are English (for English speech that is a no-op).
-            val whisperTranslates = modelSize != ModelSize.SENSEVOICE &&
+            // Turbo (Filipino) has no translate mode worth using: it transcribes, then ML Kit translates.
+            val whisperTranslates = modelSize != ModelSize.SENSEVOICE && modelSize != ModelSize.TURBO &&
                 settings.targetLang.lowercase().startsWith("en") &&
                 (sourceAuto || !settings.sourceLang.lowercase().startsWith("en"))
             val modelsDir = ServiceDependencies.modelsDir(this)

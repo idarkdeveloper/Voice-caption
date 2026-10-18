@@ -36,6 +36,7 @@ private fun modelTitle(size: ModelSize): String = stringResource(
         ModelSize.BASE -> R.string.storage_model_fast
         ModelSize.SMALL -> R.string.storage_model_accurate
         ModelSize.SENSEVOICE -> R.string.settings_model_experimental
+        ModelSize.TURBO -> R.string.storage_model_turbo
     },
 )
 
@@ -45,6 +46,7 @@ private fun modelName(size: ModelSize): String = stringResource(
         ModelSize.BASE -> R.string.model_name_fast
         ModelSize.SMALL -> R.string.model_name_accurate
         ModelSize.SENSEVOICE -> R.string.model_name_experimental
+        ModelSize.TURBO -> R.string.model_name_turbo_short
     },
 )
 

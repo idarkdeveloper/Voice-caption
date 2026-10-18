@@ -93,6 +93,9 @@
     <string name="model_name_base">Whisper (Fast)</string>
     <string name="model_name_small">Whisper (Accurate)</string>
     <string name="model_name_sensevoice">SenseVoice</string>
+    <string name="model_name_turbo">Whisper Turbo (Filipino)</string>
+    <string name="storage_model_turbo">Filipino (turbo)</string>
+    <string name="model_name_turbo_short">Turbo</string>
     <string name="model_name_auto">%1$s (Auto)</string>
     <string name="home_running_title">Live captions are on</string>
     <string name="home_running_body">Captions appear as people speak and may change as more words arrive.</string>
@@ -148,7 +151,7 @@
     <string name="storage_model_accurate">Accurate (small)</string>
     <string name="settings_model_accurate">Accurate</string>
     <string name="settings_model_auto">Auto</string>
-    <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, and Whisper for other languages. For Korean or Chinese with English captions, long sentences also use Accurate when it is installed (not when SenseVoice is chosen on its own).</string>
+    <string name="settings_model_auto_helper">Auto uses SenseVoice for Japanese, Chinese, Korean and Cantonese, Whisper Turbo (about 1 GB) for Filipino, and Whisper for other languages. For Korean or Chinese with English captions, long sentences also use Accurate when it is installed (not when SenseVoice is chosen on its own).</string>
     <string name="settings_model_experimental">SenseVoice</string>
     <string name="settings_model_helper">Accurate uses more battery and may lag on older phones</string>
     <string name="settings_languages">Languages</string>

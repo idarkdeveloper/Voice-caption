@@ -21,6 +21,8 @@ class ModelsTest {
         }
         assertEquals(ModelSize.BASE, CaptionSettings(sourceLang = "es").activeModel)
         assertEquals(ModelSize.SMALL, CaptionSettings(sourceLang = "es", modelSize = ModelSize.SMALL).activeModel)
+        assertEquals(ModelSize.TURBO, CaptionSettings(sourceLang = "tl").activeModel) // Filipino
+        assertEquals(ModelSize.SMALL, CaptionSettings(sourceLang = "tl", modelSize = ModelSize.SMALL, autoModel = false).activeModel)
         // A stored SenseVoice choice must not leak into languages it handles poorly.
         assertEquals(ModelSize.BASE, CaptionSettings(sourceLang = "fr", modelSize = ModelSize.SENSEVOICE).activeModel)
     }

@@ -25,7 +25,8 @@ data class Caption(
 )
 
 /** BASE/SMALL are Whisper sizes; SENSEVOICE is the experimental SenseVoice-Small recognizer. */
-enum class ModelSize { BASE, SMALL, SENSEVOICE }
+/** TURBO (Whisper large-v3-turbo, ~1 GB) is picked automatically for Filipino; it only transcribes. */
+enum class ModelSize { BASE, SMALL, SENSEVOICE, TURBO }
 
 data class CaptionSettings(
     val sourceLang: String = "en",
@@ -67,6 +68,7 @@ object ModelChoice {
         return when {
             primary == "auto" -> if (preferred == ModelSize.SENSEVOICE) ModelSize.BASE else preferred // Whisper listens first
             primary in SENSEVOICE_FIRST -> ModelSize.SENSEVOICE
+            primary == "tl" -> ModelSize.TURBO // Whisper small mishears Filipino; turbo + ML Kit measured far better
             preferred == ModelSize.SENSEVOICE -> ModelSize.BASE // Whisper covers every other language
             else -> preferred
         }

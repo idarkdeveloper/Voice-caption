@@ -300,6 +300,7 @@ private fun speechModelName(state: MainUiState): String {
             ModelSize.BASE -> R.string.model_name_base
             ModelSize.SMALL -> R.string.model_name_small
             ModelSize.SENSEVOICE -> R.string.model_name_sensevoice
+            ModelSize.TURBO -> R.string.model_name_turbo
         },
     )
     return if (state.settings.autoModel) stringResource(R.string.model_name_auto, name) else name
