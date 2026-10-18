@@ -83,9 +83,12 @@ class AutoRecognizer(
             // SenseVoice names Cantonese "yue"; ML Kit knows it as Chinese.
             return Transcript(t.text, translationCode(if (told) locked else (t.language ?: locked)), t.event)
         }
-        val t = whisper.recognize(segment, locked)
+        // English and Filipino shows mix both languages in one scene (Taglish). Forcing either one
+        // garbles the other, so Whisper keeps detecting every sentence itself.
+        val perSentence = locked in MIXED_LANGUAGES
+        val t = whisper.recognize(segment, if (perSentence) "" else locked)
         currentOutputLanguage = whisper.outputLanguage
-        return Transcript(t.text, locked, t.event)
+        return Transcript(t.text, if (perSentence) (t.language ?: locked) else locked, t.event)
     }
 
     private suspend fun decideRoute(locked: String): Route {
@@ -101,6 +104,7 @@ class AutoRecognizer(
     private companion object {
         val SENSEVOICE_LANGUAGES = setOf("ja", "zh", "ko", "yue")
         val TOLD_LANGUAGES = setOf("ja", "ko")
+        val MIXED_LANGUAGES = setOf("en", "tl")
 
         fun translationCode(language: String): String = if (language == "yue") "zh" else language
     }

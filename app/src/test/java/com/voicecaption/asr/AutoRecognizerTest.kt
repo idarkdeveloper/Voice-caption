@@ -138,6 +138,16 @@ class AutoRecognizerTest {
     }
 
     @Test
+    fun englishAndFilipinoStayOnPerSentenceDetection() = runTest {
+        val whisper = Fake({ "w" }, detected = "en")
+        val r = AutoRecognizer(whisper, null, { _, _ -> true }, { "en" })
+        r.recognize(segment(), "auto"); r.recognize(segment(), "auto") // locks "en"
+        val t = r.recognize(segment(), "auto")
+        assertEquals(listOf("", "", ""), whisper.calls) // never forced to English
+        assertEquals("en", t.language)
+    }
+
+    @Test
     fun closeClosesBothEngines() {
         val whisper = Fake({ "w" }); val sense = Fake({ "s" })
         auto(whisper, sense).close()

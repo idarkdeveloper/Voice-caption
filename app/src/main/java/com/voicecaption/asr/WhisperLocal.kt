@@ -44,7 +44,9 @@ class WhisperLocal(
     override suspend fun recognize(segment: SpeechSegment, language: String): Transcript {
         check(!synchronized(lock) { closed }) { "WhisperLocal is closed" }
         if (segment.samples.isEmpty()) return Transcript("")
-        val lang = normalizeWhisperLanguage(language)
+        // Filipino speech is full of English words; forcing Tagalog turns those into nonsense, so Whisper
+        // detects each sentence itself (see AutoRecognizer for the same rule on "auto").
+        val lang = normalizeWhisperLanguage(language).let { if (it == "tl") "" else it }
         return withContext(Dispatchers.Default) {
             synchronized(lock) {
                 check(!closed) { "WhisperLocal is closed" }
