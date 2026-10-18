@@ -14,7 +14,7 @@
     <string name="record_saved_title">Recording saved</string>
     <string name="record_saved_text">Saved to Movies/TransCap. Tap to watch it.</string>
     <string name="home_record_label">Record the screen with captions</string>
-    <string name="home_record_helper">Saves a video with the captions on it to Movies/TransCap. Starts when you press Start captions. Some apps show black in recordings.</string>
+    <string name="home_record_helper">Saves a video with the captions on it to Movies/TransCap. Starts when you press Start captions. Choose \"Entire screen\" when Android asks, or the captions will not be in the video. Some apps show black in recordings.</string>
     <string name="capture_notification_title">Live captions are on</string>
     <string name="capture_notification_text">Captioning the sound playing on this phone</string>
     <string name="capture_action_stop">Stop</string>

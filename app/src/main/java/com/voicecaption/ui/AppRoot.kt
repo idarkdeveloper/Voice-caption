@@ -143,7 +143,7 @@ fun AppRoot(vm: MainViewModel) {
                 onSwapLanguages = swapLanguages,
                 onStartConfirmed = {
                     notStarted = false
-                    projectionLauncher.launch(Permissions.projectionIntent(context))
+                    projectionLauncher.launch(Permissions.projectionIntent(context, entireScreen = state.settings.recordScreen))
                 },
                 onStop = { CaptureService.stop(context) },
                 onDownload = vm::startDownloads,
