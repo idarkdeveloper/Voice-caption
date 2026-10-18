@@ -32,6 +32,12 @@
     <string name="language_choose">Choose %1$s</string>
     <string name="language_auto">Auto-detect</string>
     <string name="language_auto_helper">TransCap listens to the first sentences to find the film\'s language. Works best when captions are in English.</string>
+    <string name="language_search">Search languages</string>
+    <string name="language_section_phone">On this phone</string>
+    <string name="language_section_all">All languages</string>
+    <string name="language_downloaded">Downloaded</string>
+    <string name="language_not_downloaded">Not downloaded</string>
+    <string name="language_no_match">No language matches \"%1$s\"</string>
     <string name="language_swap">Swap film and caption languages</string>
 
     <!-- Onboarding -->
@@ -69,6 +75,13 @@
     <string name="home_reason_downloading">Wait for the download to finish.</string>
     <string name="home_reason_download_failed">Fix the download problem, then try again.</string>
     <string name="home_reason_setup">Finish setup to start.</string>
+    <string name="home_speech_model">Speech model: %1$s</string>
+    <string name="model_name_base">Whisper (Fast)</string>
+    <string name="model_name_small">Whisper (Accurate)</string>
+    <string name="model_name_sensevoice">SenseVoice</string>
+    <string name="model_name_auto">%1$s (Auto)</string>
+    <string name="home_running_title">Live captions are on</string>
+    <string name="home_running_body">Captions appear as people speak and may change as more words arrive.</string>
     <string name="home_consent_title">Start captions?</string>
     <string name="home_consent_body">Android will ask to record your screen. Captions only use the audio.</string>
 
@@ -76,6 +89,8 @@
     <string name="download_both">Download speech model (about %1$d MB) and language pack</string>
     <string name="download_model_only">Download speech model (about %1$d MB)</string>
     <string name="download_pack_only">Download language pack</string>
+    <string name="download_wifi_hint">Use Wi-Fi to avoid mobile data charges.</string>
+    <string name="download_cancel_note">Cancel stops the download. An unfinished speech model starts again next time.</string>
     <string name="download_action">Download</string>
     <string name="download_retry">Retry</string>
     <string name="download_cancel">Cancel download</string>

@@ -108,6 +108,8 @@ class AppContainer(context: Context) {
         override suspend fun isTranslationReady(source: String, target: String) =
             source == target || SupportedLanguages.isAuto(source) || guarded("isReady") { translator.isReady(source, target) }
 
+        override suspend fun downloadedLanguages(): Set<String> = setOf("en") + translator.downloadedLanguages()
+
         override suspend fun deleteModel(size: ModelSize) =
             guarded("delete") { withContext(Dispatchers.IO) { modelManager.delete(size) } }
     }

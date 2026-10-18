@@ -54,6 +54,7 @@ class MainViewModel(
                 installedModels = ModelSize.entries
                     .filter { safely(false, onError) { readiness.isModelInstalled(it) } }.toSet(),
                 translationReady = safely(false, onError) { readiness.isTranslationReady(s.sourceLang, s.targetLang) },
+                downloadedLanguages = safely(setOf("en"), onError) { readiness.downloadedLanguages() },
             )
         }
 

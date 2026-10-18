@@ -234,6 +234,7 @@ fun SettingsScreen(state: MainUiState, modelMegabytes: Map<ModelSize, Int>, acti
                     onSourceSelected = actions.onSourceLanguage,
                     onTargetSelected = actions.onTargetLanguage,
                     onSwap = actions.onSwapLanguages,
+                    downloaded = state.downloadedLanguages,
                 )
             }
 

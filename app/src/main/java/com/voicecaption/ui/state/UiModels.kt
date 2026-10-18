@@ -30,6 +30,9 @@ interface ReadinessSource {
 
     /** Deletes the installed model for [size]; true if something was removed. */
     suspend fun deleteModel(size: ModelSize): Boolean
+
+    /** Languages whose translation pack is on the device; English is always included. */
+    suspend fun downloadedLanguages(): Set<String> = setOf("en")
 }
 
 /** What is installed, computed for exactly one (model size, source, target) combination. */
@@ -39,6 +42,7 @@ data class ReadinessSnapshot(
     val targetLang: String,
     val installedModels: Set<ModelSize>,
     val translationReady: Boolean,
+    val downloadedLanguages: Set<String> = setOf("en"),
 )
 
 /** Everything the screens render. */
@@ -53,6 +57,8 @@ data class MainUiState(
     val installedModels: Set<ModelSize> = emptySet(),
     /** The selected language pair can translate offline (same-language needs no pack). */
     val translationReady: Boolean = false,
+    /** Languages with a pack on the device (English is built in). Shown in the language picker. */
+    val downloadedLanguages: Set<String> = setOf("en"),
     val download: DownloadState = DownloadState.Idle,
     /** Captioning is running right now. */
     val running: Boolean = false,
@@ -90,6 +96,7 @@ fun reduceUiState(
         modelInstalled = inputs.modelInstalled,
         installedModels = readiness?.installedModels.orEmpty(),
         translationReady = inputs.translationReady,
+        downloadedLanguages = readiness?.downloadedLanguages ?: setOf("en"),
         download = download,
         running = running,
         nextStep = ReadinessChecker.nextStep(inputs),
