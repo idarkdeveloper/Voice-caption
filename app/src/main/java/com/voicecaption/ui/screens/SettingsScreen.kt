@@ -2,6 +2,7 @@ package com.voicecaption.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
@@ -308,7 +309,16 @@ private fun ModelChoice(auto: Boolean, selected: ModelSize, onSelect: (ModelSize
                     onClick = { if (size == null) onAuto() else onSelect(size) },
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
                     modifier = Modifier.heightIn(min = Spacing.Target),
-                ) { Text(stringResource(label), maxLines = 1) }
+                    icon = {}, // no check mark: the filled segment shows the choice and frees room for the names
+                ) {
+                    // Four segments share the width: the longest name gets a slightly smaller size so it is not cut off.
+                    Text(
+                        stringResource(label),
+                        maxLines = 1,
+                        softWrap = false,
+                        fontSize = if (size == ModelSize.SENSEVOICE) 12.sp else 14.sp,
+                    )
+                }
             }
         }
         if (auto) {
