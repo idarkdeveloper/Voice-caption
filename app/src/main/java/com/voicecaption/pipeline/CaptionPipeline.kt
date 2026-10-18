@@ -212,7 +212,7 @@ class CaptionPipeline(
         segmentsRecognized++
         val decodeMs = clock() - decodeStart
         val text = transcript.text
-        val cleaned = RecognizedText.stripSoundTags(text)
+        val cleaned = RecognizedText.collapseRepeats(RecognizedText.stripSoundTags(text))
         val noise = RecognizedText.isNoise(cleaned)
         // The language of the text we hold: what the recognizer already outputs, else the spoken
         // language (the chosen one, or the detected one for auto-detect; null while still unknown).
