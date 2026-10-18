@@ -164,6 +164,22 @@ class CaptionPipelineTest {
     }
 
     @Test
+    fun englishLineInAFilipinoShowIsNotTranslatedAndFillerIsDroppedBeforeTranslating() = runTest {
+        val settings = CaptionSettings(sourceLang = "tl", targetLang = "en")
+        val english = rig(FakeRecognizer(detectedLanguage = "en") { _, _ -> "Okay, 3 minutes." }, settings = settings)
+        english.feedSpeech()
+        runCurrent()
+        assertEquals(0, english.translator.calls)
+        assertEquals("Okay, 3 minutes.", english.pipeline.captions.value.single().translatedText)
+
+        val filipino = rig(FakeRecognizer(detectedLanguage = "tl") { _, _ -> "Opo, last 3 minutes na lang po." }, settings = settings)
+        filipino.feedSpeech()
+        runCurrent()
+        assertEquals(1, filipino.translator.calls)
+        assertEquals("T(oo, last 3 minutes na lang.)", filipino.pipeline.captions.value.single().translatedText)
+    }
+
+    @Test
     fun regionalVariantOfSameLanguageSkipsTranslation() = runTest {
         val r = rig(
             FakeRecognizer { _, _ -> "color" },

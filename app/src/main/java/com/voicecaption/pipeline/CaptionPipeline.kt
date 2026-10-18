@@ -8,6 +8,7 @@ import com.voicecaption.core.Caption
 import com.voicecaption.core.CaptionSettings
 import com.voicecaption.core.PcmFrame
 import com.voicecaption.core.SpeechSegment
+import com.voicecaption.translate.FilipinoText
 import com.voicecaption.translate.Translator
 import com.voicecaption.translate.TranslatorNotReadyException
 import com.voicecaption.vad.VadSegmenter
@@ -216,7 +217,10 @@ class CaptionPipeline(
         val noise = RecognizedText.isNoise(cleaned)
         // The language of the text we hold: what the recognizer already outputs, else the spoken
         // language (the chosen one, or the detected one for auto-detect; null while still unknown).
-        val textLang = recognizer.outputLanguage ?: if (isAutoLanguage(s.sourceLang)) transcript.language else s.sourceLang
+        val baseLang = recognizer.outputLanguage ?: if (isAutoLanguage(s.sourceLang)) transcript.language else s.sourceLang
+        // A Filipino show also has plain English lines (Taglish): those are already English, so they are
+        // shown as heard instead of being run through the Filipino translator.
+        val textLang = if (primary(s.sourceLang) == "tl" && transcript.language?.let(::primary) == "en") "en" else baseLang
         bump {
             it.copy(
                 recognized = segmentsRecognized, queueDepth = pending.get(), lastDecodeMs = decodeMs,
@@ -246,7 +250,8 @@ class CaptionPipeline(
         update { onSourceText(job.id, shown, clock()) }
         try {
             val translateStart = clock()
-            val translated = translator.translate(shown, textLang, s.targetLang)
+            val toTranslate = if (primary(textLang) == "tl") FilipinoText.prepare(shown) else shown
+            val translated = translator.translate(toTranslate, textLang, s.targetLang)
             recordLag(job, clock() - translateStart)
             notReadyReported = false
             // The source caption may have expired or been evicted while translating; a late
