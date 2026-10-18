@@ -37,8 +37,11 @@ object SupportedLanguages {
     private fun englishName(code: String) = displayName(code, Locale.ENGLISH)
 
     /** The language's name in [locale] (e.g. "Spanish"), capitalized for list display. */
-    fun displayName(code: String, locale: Locale = Locale.getDefault()): String =
-        Locale(code).getDisplayLanguage(locale).replaceFirstChar { it.titlecase(locale) }
+    fun displayName(code: String, locale: Locale = Locale.getDefault()): String {
+        val name = Locale(code).getDisplayLanguage(locale).replaceFirstChar { it.titlecase(locale) }
+        // Tagalog is what most people call Filipino; say both so it can be found under either name.
+        return if (code == "tl" && locale.language == "en") "Filipino ($name)" else name
+    }
 
     /** True when [code] is exactly one of [codes] (no normalization). */
     fun isSupported(code: String): Boolean = code in codeSet

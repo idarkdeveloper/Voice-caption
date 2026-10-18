@@ -25,6 +25,14 @@ class LanguageSectionsTest {
     }
 
     @Test
+    fun filipinoFindsTagalog() {
+        val s = languageSections("filipino", allowAuto = false, downloaded = emptySet(), autoName = "Auto")
+        assertEquals(listOf("tl"), s.onPhone + s.others)
+        val t = languageSections("tagalog", allowAuto = false, downloaded = emptySet(), autoName = "Auto")
+        assertEquals(listOf("tl"), t.onPhone + t.others)
+    }
+
+    @Test
     fun searchCanFindAutoDetectAndReportsNoMatch() {
         val auto = languageSections("auto", allowAuto = true, downloaded = emptySet(), autoName = "Auto-detect")
         assertEquals(listOf(SupportedLanguages.AUTO), auto.onPhone)

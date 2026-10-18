@@ -177,7 +177,9 @@ internal fun languageSections(
     val q = query.trim()
     val codes = (if (allowAuto) listOf(SupportedLanguages.AUTO) else emptyList()) + SupportedLanguages.codes
     val shown = codes.filter { code ->
-        q.isEmpty() || (if (code == SupportedLanguages.AUTO) autoName else nameOf(code)).contains(q, ignoreCase = true)
+        q.isEmpty() ||
+            (if (code == SupportedLanguages.AUTO) autoName else nameOf(code)).contains(q, ignoreCase = true) ||
+            (code == "tl" && "filipino".contains(q, ignoreCase = true) && q.length >= 2)
     }
     val (phone, rest) = shown.partition { it == SupportedLanguages.AUTO || it in downloaded }
     return LanguageSections(phone, rest)
